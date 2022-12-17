@@ -9,13 +9,14 @@ class Boulder < Formula
 
   head "https://github.com/letsencrypt/boulder.git",
     branch: "main"
-
   depends_on "go" => :build
+
   def install
     system "make"
     bin.install Dir["bin/*"]
   end
+  
   test do
-    assert_match version.to_s, shell_output("#{bin}/boulder -version")
+    assert_match "Versions:", shell_output("#{bin}/boulder -version")
   end
 end
