@@ -15,7 +15,7 @@ class Boulder < Formula
     system "make"
     bin.install Dir["bin/*"]
   end
-  
+
   test do
     assert_match "Versions:", shell_output("#{bin}/boulder -version")
   end
