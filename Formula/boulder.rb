@@ -6,9 +6,9 @@ class Boulder < Formula
     revision: "fe2cf7d13695b9f3de2a2b47aa735fa50a0e2100"
   version "release-2022-12-12"
   license "MPL-2.0"
-
   head "https://github.com/letsencrypt/boulder.git",
     branch: "main"
+
   depends_on "go" => :build
 
   def install
