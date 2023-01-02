@@ -1,10 +1,13 @@
-# Sheurich Tap
+# Homebrew Tap
 
-## How do I install these formulae?
+## Boulder
 
-`brew install sheurich/tap/<formula>`
+    brew install sheurich/tap/boulder
 
-Or `brew tap sheurich/tap` and then `brew install <formula>`.
+Or
+
+    brew tap sheurich/tap
+    brew install boulder
 
 ## Documentation
 
