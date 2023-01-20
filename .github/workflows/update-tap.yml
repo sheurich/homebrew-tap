@@ -1,0 +1,17 @@
+name: update-tap
+
+on:
+  schedule:
+    - cron: "0 * * * *"
+  workflow_dispatch:
+
+jobs:
+  update-tap:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update Homebrew formulae
+        uses: dawidd6/action-homebrew-bump-formula@master
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tap: sheurich/tap
+          livecheck: true
