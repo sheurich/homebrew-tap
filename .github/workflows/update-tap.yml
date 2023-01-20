@@ -5,14 +5,16 @@ on:
     - cron: "0 * * * *"
   workflow_dispatch:
 
-permissions:
-  contents: write
-  pull-requests: write
+# permissions:
+#   contents: write
+#   pull-requests: write
 
 jobs:
   update-tap:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v3
       - name: Update Homebrew formulae
         uses: dawidd6/action-homebrew-bump-formula@master
         with:
