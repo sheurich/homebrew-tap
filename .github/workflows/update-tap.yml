@@ -5,6 +5,9 @@ on:
     - cron: "0 * * * *"
   workflow_dispatch:
 
+permissions:
+  pull-requests: write
+
 jobs:
   update-tap:
     runs-on: ubuntu-latest
