@@ -4,16 +4,13 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   packages: read
   pull-requests: write
 
 jobs:
   update-tap:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
     steps:
       - name: Update Homebrew formulae
         uses: dawidd6/action-homebrew-bump-formula@v3
