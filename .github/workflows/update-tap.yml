@@ -17,4 +17,4 @@ jobs:
         with:
           livecheck: true
           tap: sheurich/tap
-          token: "${{ github.token }}"
+          token: "${{ secrets.HOMEBREW_GITHUB_API_TOKEN }}"
