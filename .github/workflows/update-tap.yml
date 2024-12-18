@@ -20,8 +20,8 @@ jobs:
       - name: Update Homebrew formulae
         uses: dawidd6/action-homebrew-bump-formula@v3
         env:
-          HOMEBREW_GITHUB_API_TOKEN: ${{ github.token }}
+          HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.HOMEBREW_GITHUB_API_TOKEN }}
         with:
           livecheck: true
           tap: sheurich/tap
-          token: ${{ github.token }}
+          token: ${{ secrets.HOMEBREW_GITHUB_API_TOKEN }}
