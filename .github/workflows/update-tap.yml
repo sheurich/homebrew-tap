@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Update Homebrew formulae
-        uses: dawidd6/action-homebrew-bump-formula@master
+        uses: dawidd6/action-homebrew-bump-formula@v4
         with:
           livecheck: true
           tap: sheurich/tap
