@@ -2,8 +2,8 @@ class Boulder < Formula
   desc "ACME-based certificate authority, written in Go"
   homepage "https://github.com/letsencrypt/boulder"
   url "https://github.com/letsencrypt/boulder.git",
-    tag:      "release-2025-01-06",
-    revision: "9b3c8829e89f4d5b9fc16876d4aebe2237106d51"
+    tag:      "release-2025-01-13",
+    revision: "45a56ae9bded1d0efbb9fe85d307c8010bb23ce1"
   license "MPL-2.0"
 
   head "https://github.com/letsencrypt/boulder.git",
