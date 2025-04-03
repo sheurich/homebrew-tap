@@ -32,24 +32,49 @@ jobs:
         # Ensures Homebrew environment is set up correctly
         uses: Homebrew/actions/setup-homebrew@master
 
-      - name: Run brew test for all formulae
+      - name: Run brew test for formulae in tap
         run: |
-          echo "Testing formulae in sheurich/tap..."
-          # Get list of all formulae in the tap (using the PR's version of the tap)
-          FORMULAE_LIST=$(brew formulae --tap=sheurich/tap)
-          if [ -z "$FORMULAE_LIST" ]; then
-            echo "No formulae found in tap to test."
-            # Exit non-zero if no formulae found, as something is wrong
-            exit 1
+          # Ensure jq is available for parsing JSON output from tap-info
+          if ! command -v jq &> /dev/null; then
+            echo "jq not found, installing using Homebrew..."
+            brew install jq
+          fi
+
+          # Define tap name based on the repository name (adjust if tap name differs)
+          TAP_NAME="${{ github.repository }}"
+          echo "Getting formulae list for tap: $TAP_NAME..."
+
+          # Get list of only formulae within the specific tap using tap-info and jq
+          # Extracts the simple formula names from the 'formula_names' array in the JSON output
+          FORMULA_NAMES_ONLY=$(brew tap-info --json=v1 "$TAP_NAME" | jq -r '.formula_names[]')
+
+          if [ -z "$FORMULA_NAMES_ONLY" ]; then
+            echo "No formulae found in tap $TAP_NAME to test."
+            # Consider exiting 0 if an empty tap is valid, or 1 if it indicates an error
+            exit 0 # Assuming an empty tap might be okay initially
           else
-            echo "Testing formulae: $FORMULAE_LIST"
-            # Loop through each formula and test it individually.
-            # If any test fails, the script will exit non-zero, failing the job.
-            for FORMULA in $FORMULAE_LIST; do
-              echo "Testing $FORMULA..."
-              brew test "$FORMULA"
-            done
-            echo "All tests passed."
+            echo "Testing formulae found in $TAP_NAME..."
+            # Loop through each simple formula name and test it using its full name (tap/formula)
+            # Use 'echo "$FORMULA_NAMES_ONLY" | while read ...' for safety with spaces/newlines in names
+            FAILED_TESTS=0
+            echo "$FORMULA_NAMES_ONLY" | while IFS= read -r FORMULA_NAME; do
+              # Construct full formula name (e.g., sheurich/tap/boulder) for testing
+              FULL_FORMULA_NAME="$TAP_NAME/$FORMULA_NAME"
+              echo "--- Testing $FULL_FORMULA_NAME ---"
+              # Test using the full name
+              if ! brew test "$FULL_FORMULA_NAME"; then
+                 echo "!!! Test failed for $FULL_FORMULA_NAME"
+                 FAILED_TESTS=$((FAILED_TESTS + 1))
+              fi
+            done <&0 # Ensure loop reads from the pipe
+
+            # Check if any tests failed
+            if [ "$FAILED_TESTS" -gt 0 ]; then
+               echo "!!! $FAILED_TESTS formula test(s) failed."
+               exit 1 # Fail the job
+            else
+               echo "+++ All tests passed for formulae in $TAP_NAME."
+            fi
           fi
 
   auto-merge:
@@ -57,6 +82,8 @@ jobs:
     # Run only if the test job succeeded
     needs: test-formulae
     runs-on: ubuntu-latest
+    # Optional: Add condition to only merge PRs from a specific author (e.g., the bot/user creating them)
+    # if: github.event.pull_request.user.login == 'expected-github-username' # Example condition
     steps:
       - name: Merge PR
         env:
