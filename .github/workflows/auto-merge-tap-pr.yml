@@ -1,0 +1,74 @@
+# .github/workflows/auto-merge-tap-pr.yml
+name: Test and Auto-Merge Tap PRs
+
+on:
+  # Trigger on pull requests targeting the main branch (adjust if needed)
+  pull_request:
+    branches:
+      - main # Or your default branch
+    # Only trigger for PRs opened or updated (new commits pushed)
+    types:
+      - opened
+      - synchronize
+    # Only trigger if files in the Formula directory changed
+    paths:
+      - "Formula/**"
+
+# Grant permissions for checkout, merging PRs, and writing contents (for merge commit)
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  test-formulae:
+    name: Test Formulae in PR
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR code
+        # Checks out the code from the PR branch automatically
+        uses: actions/checkout@v4
+
+      - name: Set up Homebrew
+        # Ensures Homebrew environment is set up correctly
+        uses: Homebrew/actions/setup-homebrew@master
+
+      - name: Run brew test for all formulae
+        run: |
+          echo "Testing formulae in sheurich/tap..."
+          # Get list of all formulae in the tap (using the PR's version of the tap)
+          FORMULAE_LIST=$(brew formulae --tap=sheurich/tap)
+          if [ -z "$FORMULAE_LIST" ]; then
+            echo "No formulae found in tap to test."
+            # Exit non-zero if no formulae found, as something is wrong
+            exit 1
+          else
+            echo "Testing formulae: $FORMULAE_LIST"
+            # Loop through each formula and test it individually.
+            # If any test fails, the script will exit non-zero, failing the job.
+            for FORMULA in $FORMULAE_LIST; do
+              echo "Testing $FORMULA..."
+              brew test "$FORMULA"
+            done
+            echo "All tests passed."
+          fi
+
+  auto-merge:
+    name: Auto Merge PR
+    # Run only if the test job succeeded
+    needs: test-formulae
+    runs-on: ubuntu-latest
+    steps:
+      - name: Merge PR
+        env:
+          # GITHUB_TOKEN is automatically available
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Get PR number from the event payload
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          # Get repository name (e.g., sheurich/homebrew-tap)
+          REPO: ${{ github.repository }}
+        run: |
+          echo "Attempting to merge PR #$PR_NUMBER in $REPO"
+          # Use GitHub CLI to merge the pull request
+          # Choose merge strategy: --merge, --squash, or --rebase
+          gh pr merge "$PR_NUMBER" --squash --delete-branch --body "Automatically merged after tests passed."
+          echo "PR #$PR_NUMBER merged successfully."
