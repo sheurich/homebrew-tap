@@ -9,10 +9,14 @@ class Boulder < Formula
   head "https://github.com/letsencrypt/boulder.git",
     branch: "main"
 
-  livecheck do
-    url :stable
-    regex(/^release-?(\d+(-\d+)+)$/i)
-  end
+    livecheck do
+      url :stable
+      # https://github.com/letsencrypt/boulder/blob/main/docs/release.md
+      # Regex matches tags like:
+      # - release-YYYY-MM-DD
+      # - release-YYYY-MM-DDa
+      regex(/^release-(\d{4}-\d{2}-\d{2})([a-z])?$/i)
+    end
 
   depends_on "go" => :build
 
