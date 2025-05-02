@@ -13,5 +13,6 @@ jobs:
         uses: dawidd6/action-homebrew-bump-formula@v4
         with:
           livecheck: true
+          no_fork: true
           tap: sheurich/tap
           token: "${{ secrets.HOMEBREW_GITHUB_API_TOKEN }}"
