@@ -26,10 +26,8 @@ class Boulder < Formula
     build_host = "#{build_os}/#{build_arch}"
     build_id = stable.specs[:tag]
     build_time = "+#{stable.specs[:revision][0, 8]}"
-    ENV["BUILD_HOST"] = build_host
-    ENV["BUILD_ID"] = build_id
-    ENV["BUILD_TIME"] = build_time
-    system "make"
+    system "make", "BUILD_ID=#{build_id}", "BUILD_TIME=#{build_time}",
+           "BUILD_HOST=#{build_host}"
     bin.install Dir["bin/*"]
   end
 
