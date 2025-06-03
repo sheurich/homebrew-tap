@@ -3,9 +3,11 @@
 # 'Create Formula Bump PR' workflow. Validates the specific formula changed in the PR.
 # Uses Homebrew/actions/setup-homebrew for environment setup.
 
+
+---
 name: Validate and Auto-Merge Bump PR (Dynamic)
 
-on:
+'on':
   # Trigger whenever a pull request is opened or synchronized (pushed to)
   pull_request:
     types: [opened, synchronize]
