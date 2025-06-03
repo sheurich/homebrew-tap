@@ -9,23 +9,29 @@ class Boulder < Formula
   head "https://github.com/letsencrypt/boulder.git",
     branch: "main"
 
-    livecheck do
-      url :stable
-      # https://github.com/letsencrypt/boulder/blob/main/docs/release.md
-      # Regex matches tags like:
-      # - release-YYYY-MM-DD
-      # - release-YYYY-MM-DDa
-      regex(/^release-(\d{4}-\d{2}-\d{2})([a-z])?$/i)
-    end
+  livecheck do
+    url :stable
+    # https://github.com/letsencrypt/boulder/blob/main/docs/release.md
+    # Regex matches tags like:
+    # - release-YYYY-MM-DD
+    # - release-YYYY-MM-DDa
+    regex(/^release-(\d{4}-\d{2}-\d{2})([a-z])?$/i)
+  end
 
   depends_on "go" => :build
 
   def install
+    build_id = stable.specs[:tag]
+    build_time = "+#{stable.specs[:revision][0, 8]}"
+    build_host = "reproducible"
+    ENV["BUILD_ID"] = build_id
+    ENV["BUILD_TIME"] = build_time
+    ENV["BUILD_HOST"] = build_host
     system "make"
     bin.install Dir["bin/*"]
   end
 
   test do
-    assert_match "Versions:", shell_output("#{bin}/boulder -version")
+    assert_match "Versions:", shell_output("#{bin}/boulder --version")
   end
 end
