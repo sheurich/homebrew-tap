@@ -21,8 +21,8 @@ class Boulder < Formula
   depends_on "go" => :build
 
   def install
-    build_os = Utils.safe_popen_read("go", "env", "GOHOSTOS").strip
-    build_arch = Utils.safe_popen_read("go", "env", "GOHOSTARCH").strip
+    build_os = Utils.safe_popen_read("go", "env", "GOOS").strip
+    build_arch = Utils.safe_popen_read("go", "env", "GOARCH").strip
     build_host = "#{build_os}/#{build_arch}"
     build_id = stable.specs[:tag]
     build_time = "+#{stable.specs[:revision][0, 8]}"
