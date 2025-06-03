@@ -1,4 +1,4 @@
-# Sheurich Homebrew Tap
+# Homebrew Tap
 
 This repository hosts the **sheurich/tap** Homebrew tap. A tap allows you to provide
 additional formulas outside of Homebrew core. It currently contains one formula,
