@@ -17,8 +17,13 @@ class Ingest < Formula
   depends_on "go" => :build
 
   def install
-    version_tag = stable.specs[:tag]
-    build_time = "+#{stable.specs[:revision][0, 8]}"
+    if head?
+      version_tag = "HEAD"
+      build_time = "+#{Utils.safe_popen_read("git", "rev-parse", "--short=8", "HEAD").strip}"
+    else
+      version_tag = stable.specs[:tag]
+      build_time = "+#{stable.specs[:revision][0, 8]}"
+    end
     system "make", "VERSION=#{version_tag}", "BUILD_TIME=#{build_time}"
     bin.install "ingest"
   end
