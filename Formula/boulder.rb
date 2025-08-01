@@ -2,8 +2,8 @@ class Boulder < Formula
   desc "ACME-based certificate authority, written in Go"
   homepage "https://github.com/letsencrypt/boulder"
   url "https://github.com/letsencrypt/boulder.git",
-    tag:      "release-2025-06-23",
-    revision: "5ddd5acf990db7d632398c767537038e42b810a0"
+    tag:      "v0.20250728.0",
+    revision: "3b631bf7d84a9fdc5e34c2027807d096d4fe726d"
   license "MPL-2.0"
 
   head "https://github.com/letsencrypt/boulder.git",
@@ -13,9 +13,8 @@ class Boulder < Formula
     url :stable
     # https://github.com/letsencrypt/boulder/blob/main/docs/release.md
     # Regex matches tags like:
-    # - release-YYYY-MM-DD
-    # - release-YYYY-MM-DDa
-    regex(/^release-(\d{4}-\d{2}-\d{2})([a-z])?$/i)
+    # - v0.20250728.0
+    regex(/^v\d\.(\d{8}(?:\.\d+)*)$/i)
   end
 
   depends_on "go" => :build
@@ -24,8 +23,8 @@ class Boulder < Formula
     build_os = Utils.safe_popen_read("go", "env", "GOOS").strip
     build_arch = Utils.safe_popen_read("go", "env", "GOARCH").strip
     build_host = "#{build_os}/#{build_arch}"
-    build_id = stable.specs[:tag]
-    build_time = "+#{stable.specs[:revision][0, 8]}"
+    build_id = stable.specs[:tag].delete_prefix("v")
+    build_time = stable.specs[:revision][0, 8]
     system "make", "BUILD_ID=#{build_id}", "BUILD_TIME=#{build_time}",
            "BUILD_HOST=#{build_host}"
     bin.install Dir["bin/*"]
