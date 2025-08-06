@@ -71,8 +71,38 @@ brew install ingest
 ## Development onboarding
 
 1. **Add or update formulas** in the `Formula/` directory.
-2. **Follow Homebrew's style guidelines**. See `brew style` and the
-   [Homebrew documentation](https://docs.brew.sh).
+2. **Run Homebrew linters locally** before pushing:
+   - Style (Rubocop via Homebrew):
+     ```bash
+     brew style --formula Formula/boulder.rb
+     brew style --formula Formula/ingest.rb
+     # or for the entire tap
+     brew style .
+     ```
+   - Audit:
+     ```bash
+     # offline checks
+     brew audit --strict --formula Formula/boulder.rb
+     brew audit --strict --formula Formula/ingest.rb
+     # enable online checks (queries upstream, e.g., GitHub releases)
+     brew audit --online --strict --formula Formula/boulder.rb
+     brew audit --online --strict --formula Formula/ingest.rb
+     # or for the entire tap
+     brew audit --online --strict --tap sheurich/tap
+     ```
+   - Build from source and run tests:
+     ```bash
+     brew install --build-from-source Formula/boulder.rb
+     brew test Formula/boulder.rb
+     brew uninstall boulder
+
+     brew install --build-from-source Formula/ingest.rb
+     brew test Formula/ingest.rb
+     brew uninstall ingest
+     ```
+   Notes:
+   - `brew style` will auto-install its bundled gems the first time it runs.
+   - Prefer fixing style offenses locally (e.g., line length or trailing commas) before pushing.
 3. **Push your changes**. The GitHub workflows will:
    - detect new upstream releases;
    - open bump PRs;
