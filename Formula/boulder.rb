@@ -24,15 +24,22 @@ class Boulder < Formula
     build_host = "#{build_os}/#{build_arch}"
 
     if build.head?
-      # Use short commit for BUILD_ID and commit timestamp (UTC, RFC 3339) for BUILD_TIME when building from HEAD
+      # Use short commit for BUILD_ID and commit timestamp (RFC 3339, UTC) for BUILD_TIME when building from HEAD
       build_id = Utils.git_short_head(length: 8) || "head"
-      build_time = Utils.git_time(commit: "HEAD").utc.iso8601
+      commit_ref = "HEAD"
     else
-      # Always use the pinned revision for both BUILD_ID and BUILD_TIME to ensure reproducibility
-      rev = stable.specs[:revision]
+      # Use the pinned revision for reproducible BUILD_TIME on stable builds
       build_id = stable.specs[:tag].delete_prefix("v")
-      build_time = Utils.git_time(commit: rev).utc.iso8601
+      commit_ref = stable.specs[:revision]
     end
+
+    # Obtain commit time in ISO 8601 (%cI) from the staged git repo to ensure reproducibility.
+    # Fail fast if we cannot determine it.
+    build_time = nil
+    Dir.chdir(buildpath) do
+      build_time = Utils.safe_popen_read("git", "show", "-s", "--format=%cI", commit_ref).strip
+    end
+    odie "Failed to determine commit time for #{commit_ref}" if build_time.to_s.empty?
 
     system "make", "BUILD_ID=#{build_id}", "BUILD_TIME=#{build_time}", "BUILD_HOST=#{build_host}"
     bin.install Dir["bin/*"]
