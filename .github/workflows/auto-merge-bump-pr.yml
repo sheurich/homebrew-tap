@@ -49,29 +49,37 @@ jobs:
 
       - name: Determine formula name
         id: formula_info
+        env:
+          PR_HEAD_REF: ${{ github.head_ref }}
         run: |
-          FORMULA_SIMPLE_NAME=$(echo "${{ github.head_ref }}" | sed -E 's/^bump-([^-]+)-.*/\1/')
+          # Derive names safely, quoting all variables to avoid word splitting/globbing
+          FORMULA_SIMPLE_NAME="$(printf '%s' "$PR_HEAD_REF" | sed -E 's/^bump-([^-]+)-.*/\1/')"
           TAP_NAME="sheurich/tap"
           FORMULA_FULL_NAME="$TAP_NAME/$FORMULA_SIMPLE_NAME"
-          echo "formula_simple_name=$FORMULA_SIMPLE_NAME" >> $GITHUB_OUTPUT
-          echo "formula_full_name=$FORMULA_FULL_NAME" >> $GITHUB_OUTPUT
-          echo "tap_name=$TAP_NAME" >> $GITHUB_OUTPUT
+          {
+            printf 'formula_simple_name=%s\n' "$FORMULA_SIMPLE_NAME"
+            printf 'formula_full_name=%s\n' "$FORMULA_FULL_NAME"
+            printf 'tap_name=%s\n' "$TAP_NAME"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Run brew style
+        env:
+          FORMULA_FULL_NAME: ${{ steps.formula_info.outputs.formula_full_name }}
         run: |
-          FORMULA_FULL_NAME="${{ steps.formula_info.outputs.formula_full_name }}"
           echo "Running style for: $FORMULA_FULL_NAME"
           brew style "$FORMULA_FULL_NAME"
 
       - name: Run brew audit
+        env:
+          FORMULA_FULL_NAME: ${{ steps.formula_info.outputs.formula_full_name }}
         run: |
-          FORMULA_FULL_NAME="${{ steps.formula_info.outputs.formula_full_name }}"
           echo "Auditing: $FORMULA_FULL_NAME"
           brew audit --online "$FORMULA_FULL_NAME"
 
       - name: Run brew install and test
+        env:
+          FORMULA_FULL_NAME: ${{ steps.formula_info.outputs.formula_full_name }}
         run: |
-          FORMULA_FULL_NAME="${{ steps.formula_info.outputs.formula_full_name }}"
           echo "Installing from source: $FORMULA_FULL_NAME"
           brew install --build-from-source "$FORMULA_FULL_NAME"
           echo "Testing formula: $FORMULA_FULL_NAME"
@@ -87,8 +95,7 @@ jobs:
         run: |
           echo "Attempting to merge PR #${PR_NUMBER} for branch: ${PR_BRANCH}"
           # Respect checks; do not override protections. Remove --admin.
-          gh pr merge "$PR_NUMBER" --squash --delete-branch
-          if [ $? -eq 0 ]; then
+          if gh pr merge "$PR_NUMBER" --squash --delete-branch; then
             echo "Successfully merged PR #${PR_NUMBER} and deleted branch: ${PR_BRANCH}"
           else
             echo "Failed to merge PR #${PR_NUMBER} for branch: ${PR_BRANCH}"
