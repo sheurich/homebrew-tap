@@ -4,15 +4,37 @@ name: Update Tap
 'on':
   schedule:
     - cron: "0 0 * * *"
+    - cron: "0 12 * * *"
   workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: update-tap
+  cancel-in-progress: true
 
 jobs:
   update-tap:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Update Homebrew formulae
         uses: dawidd6/action-homebrew-bump-formula@v4
         with:
           livecheck: true
           tap: sheurich/tap
           token: "${{ secrets.HOMEBREW_GITHUB_API_TOKEN }}"
+
+      - name: Summarize updates
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            core.summary.addHeading('Update Tap Summary')
+            core.summary.addRaw('If updates were found, bump PRs have been opened automatically.')
+            await core.summary.write()

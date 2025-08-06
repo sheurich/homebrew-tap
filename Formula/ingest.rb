@@ -11,7 +11,7 @@ class Ingest < Formula
 
   livecheck do
     url :stable
-    regex(/^v?(\d+(?:\.\d+)+)$/i)
+    strategy :git
   end
 
   depends_on "go" => :build

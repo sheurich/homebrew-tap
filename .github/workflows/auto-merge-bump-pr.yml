@@ -1,129 +1,96 @@
 # .github/workflows/auto-merge-bump-pr.yml
-# Workflow to automatically validate and merge Pull Requests created by the
-# 'Create Formula Bump PR' workflow. Validates the specific formula changed in the PR.
-# Uses Homebrew/actions/setup-homebrew for environment setup.
-
+# Automatically validate and merge bump PRs. Runs unattended.
+# Validates only bump-* branches created by the bump action.
 
 ---
 name: Validate and Auto-Merge Bump PR (Dynamic)
 
 'on':
-  # Trigger whenever a pull request is opened or synchronized (pushed to)
   pull_request:
-    types: [opened, synchronize]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: auto-merge-bump-pr-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
 
 jobs:
   validate-and-merge:
-    runs-on: ubuntu-latest # setup-homebrew supports ubuntu and macos
-    # Permissions needed:
-    # contents: write - To checkout code, run install/test, and merge/delete branch
-    # pull-requests: write - To merge the pull request using gh cli
-    permissions:
-      contents: write
-      pull-requests: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
 
-    # Condition: Only run this job if the PR branch name starts with 'bump-'
-    # This prevents it from running on manually created PRs.
+    # Only for bump-* branches (safer unattended automation)
     if: startsWith(github.head_ref, 'bump-')
 
     steps:
-      # Step 1: Checkout the code from the PR branch
-      # It's important to checkout the PR ref *before* setup-homebrew runs.
       - name: Checkout PR branch
         uses: actions/checkout@v4
         with:
-          # Checkout the specific ref (branch) of the pull request
           ref: ${{ github.event.pull_request.head.ref }}
 
-      # Step 2: Set up Homebrew environment using the official action
-      # This action also makes Homebrew aware of the tap in the checkout directory.
       - name: Set up Homebrew
-        id: set-up-homebrew # Give it an ID to reference outputs
+        id: set-up-homebrew
         uses: Homebrew/actions/setup-homebrew@master
-        # No inputs needed for basic setup
 
-      # Step 3: Cache Homebrew Bundler RubyGems (Optional but recommended for speed)
-      # Uses outputs from the setup-homebrew step
       - name: Cache Homebrew Bundler RubyGems
-        id: cache # Give cache step an ID
-        uses: actions/cache@v4 # Use latest cache action
+        id: cache
+        uses: actions/cache@v4
         with:
-          # Path where gems are installed, provided by setup-homebrew
           path: ${{ steps.set-up-homebrew.outputs.gems-path }}
-          # Cache key includes OS and a hash of gem dependencies, provided by setup-homebrew
           key: ${{ runner.os }}-rubygems-${{ steps.set-up-homebrew.outputs.gems-hash }}
-          # Fallback key if exact match not found
           restore-keys: ${{ runner.os }}-rubygems-
 
-      # Step 4: Install Homebrew Bundler RubyGems if cache miss
-      # This installs gems needed for commands like 'brew audit', 'brew style' etc.
-      - name: Install Homebrew Bundler RubyGems
-        # Only run if the cache step didn't find an exact match
+      - name: Install Homebrew Bundler RubyGems (if cache miss)
         if: steps.cache.outputs.cache-hit != 'true'
         run: brew install-bundler-gems
 
-      # Step 5: Determine the formula name from the branch name
       - name: Determine formula name
         id: formula_info
         run: |
-          # Extract the formula name from the branch ref (e.g., bump-boulder-2025-05-03 -> boulder)
           FORMULA_SIMPLE_NAME=$(echo "${{ github.head_ref }}" | sed -E 's/^bump-([^-]+)-.*/\1/')
-          TAP_NAME="sheurich/tap" # Your tap name
+          TAP_NAME="sheurich/tap"
           FORMULA_FULL_NAME="$TAP_NAME/$FORMULA_SIMPLE_NAME"
-
-          echo "Detected formula simple name: $FORMULA_SIMPLE_NAME"
-          echo "Detected formula full name: $FORMULA_FULL_NAME"
-
-          # Set outputs for subsequent steps
           echo "formula_simple_name=$FORMULA_SIMPLE_NAME" >> $GITHUB_OUTPUT
           echo "formula_full_name=$FORMULA_FULL_NAME" >> $GITHUB_OUTPUT
           echo "tap_name=$TAP_NAME" >> $GITHUB_OUTPUT
 
-      # --- Validation Steps ---
-      # These steps now use the dynamically determined formula name
+      - name: Run brew style
+        run: |
+          FORMULA_FULL_NAME="${{ steps.formula_info.outputs.formula_full_name }}"
+          echo "Running style for: $FORMULA_FULL_NAME"
+          brew style "$FORMULA_FULL_NAME"
 
       - name: Run brew audit
         run: |
           FORMULA_FULL_NAME="${{ steps.formula_info.outputs.formula_full_name }}"
-          echo "Auditing formula: $FORMULA_FULL_NAME from PR branch..."
-          # Removed the 'brew tap ... ./' command as setup-homebrew should handle tap awareness.
-          # Run audit - add --strict and --online for more thorough checks
+          echo "Auditing: $FORMULA_FULL_NAME"
           brew audit --online "$FORMULA_FULL_NAME"
 
-      # Optional: Use brew install/test for deeper validation
-      - name: Run brew install and test (Optional)
+      - name: Run brew install and test
         run: |
           FORMULA_FULL_NAME="${{ steps.formula_info.outputs.formula_full_name }}"
-          echo "Installing and testing formula: $FORMULA_FULL_NAME from PR branch..."
-          # Removed the 'brew tap ... ./' command as setup-homebrew should handle tap awareness.
-          # Install from source to test the build process defined in the formula
+          echo "Installing from source: $FORMULA_FULL_NAME"
           brew install --build-from-source "$FORMULA_FULL_NAME"
-          # Run the formula's test block (if it exists)
+          echo "Testing formula: $FORMULA_FULL_NAME"
           brew test "$FORMULA_FULL_NAME"
-          # Uninstall afterwards to keep runner clean
+          echo "Uninstalling formula: $FORMULA_FULL_NAME"
           brew uninstall "$FORMULA_FULL_NAME"
 
-      # --- End Validation Steps ---
-
-      # Step 6: Auto-merge the PR if validation passed
       - name: Auto-merge PR
         env:
-          # Pass the GitHub token for gh CLI authentication
           GH_TOKEN: ${{ github.token }}
-          # Get the PR number from the event payload
           PR_NUMBER: ${{ github.event.pull_request.number }}
-          # Get the head ref (branch name) for logging/deletion
           PR_BRANCH: ${{ github.event.pull_request.head.ref }}
         run: |
           echo "Attempting to merge PR #${PR_NUMBER} for branch: ${PR_BRANCH}"
-          # Use --squash for a cleaner commit history on main
-          # Use --delete-branch to clean up the bump-* branch
-          # Use --admin to override branch protection rules if necessary (e.g., required reviews)
-          gh pr merge "$PR_NUMBER" --squash --delete-branch --admin
+          # Respect checks; do not override protections. Remove --admin.
+          gh pr merge "$PR_NUMBER" --squash --delete-branch
           if [ $? -eq 0 ]; then
             echo "Successfully merged PR #${PR_NUMBER} and deleted branch: ${PR_BRANCH}"
           else
             echo "Failed to merge PR #${PR_NUMBER} for branch: ${PR_BRANCH}"
-            # Exit with failure if merge command fails
             exit 1
           fi
