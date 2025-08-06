@@ -90,16 +90,21 @@ brew install ingest
      # or for the entire tap
      brew audit --online --strict --tap sheurich/tap
      ```
-   - Build from source and run tests:
+   - Optional local build/test (avoids altering workstation state by using a throwaway prefix):
      ```bash
-     brew install --build-from-source Formula/boulder.rb
-     brew test Formula/boulder.rb
-     brew uninstall boulder
-
-     brew install --build-from-source Formula/ingest.rb
-     brew test Formula/ingest.rb
-     brew uninstall ingest
+     # Create a temporary Homebrew prefix and run an isolated build/test
+     TMPBREW="$(mktemp -d)"
+     brew --prefix  # shows your default prefix; unchanged by the following
+     HOMEBREW_CACHE="$TMPBREW/Cache" \
+     HOMEBREW_TEMP="$TMPBREW/Temp" \
+     HOMEBREW_PREFIX="$TMPBREW/prefix" \
+     HOMEBREW_CELLAR="$TMPBREW/Cellar" \
+     brew install --build-from-source Formula/ingest.rb && brew test Formula/ingest.rb
+     rm -rf "$TMPBREW"
      ```
+     Notes:
+     - The above uses a separate, disposable Cellar/Prefix/Cache so it does not install/uninstall into your primary Homebrew.
+     - For Boulder, ensure the tag and revision in the formula match upstream before attempting a local build.
    Notes:
    - `brew style` will auto-install its bundled gems the first time it runs.
    - Prefer fixing style offenses locally (e.g., line length or trailing commas) before pushing.
