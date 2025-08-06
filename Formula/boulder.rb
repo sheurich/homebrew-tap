@@ -35,7 +35,15 @@ class Boulder < Formula
     end
 
     # Use Homebrew's Utils::Git and safe_popen_read to get the commit timestamp without raw shell-outs.
-    raw_time = Utils.safe_popen_read(Utils::Git.git, "show", "-s", "--format=%cI", commit_ref, chdir: buildpath).to_s.strip
+    raw_time =
+      Utils.safe_popen_read(
+        Utils::Git.git,
+        "show",
+        "-s",
+        "--format=%cI",
+        commit_ref,
+        chdir: buildpath,
+      ).to_s.strip
     odie "Failed to determine commit time for #{commit_ref}" if raw_time.empty?
 
     # Normalize to UTC Zulu: parse ISO 8601 (with tz), convert to UTC, and emit ISO 8601 with trailing 'Z'.
