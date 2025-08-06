@@ -11,10 +11,9 @@ class Boulder < Formula
 
   livecheck do
     url :stable
-    strategy :git
-    # Constrain to Boulder's date-based tags
-    # Valid tags look like: v0.20250728.0
-    regex(/^v0\.\d{8}\.\d+$/i)
+    strategy :github_tags
+    # Boulder tags are strictly v0.YYYYMMDD.N (e.g., v0.20250728.0); capture the full numeric version
+    regex(/^v?(0\.\d{8}\.\d+)$/i)
   end
 
   depends_on "go" => :build

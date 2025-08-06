@@ -11,7 +11,9 @@ class Ingest < Formula
 
   livecheck do
     url :stable
-    strategy :git
+    strategy :github_tags
+    # Only match proper semver tags like vX.Y.Z and capture the version
+    regex(/^v?(\d+\.\d+\.\d+)$/i)
   end
 
   depends_on "go" => :build
