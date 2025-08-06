@@ -3,7 +3,7 @@ class Boulder < Formula
   homepage "https://github.com/letsencrypt/boulder"
   url "https://github.com/letsencrypt/boulder.git",
     tag:      "v0.20250728.0",
-    revision: "3b631bf7d84a9fdc5e34c2027807d096d4fe726d"
+    revision: "440c6957f968fbc655bb6548bb8ffb641c74021d"
   license "MPL-2.0"
 
   head "https://github.com/letsencrypt/boulder.git",
