@@ -24,20 +24,14 @@ class Boulder < Formula
     build_host = "#{build_os}/#{build_arch}"
 
     if build.head?
-      # Use short commit for BUILD_ID and current UTC time for BUILD_TIME when building from HEAD
+      # Use short commit for BUILD_ID and commit timestamp (UTC, RFC 3339) for BUILD_TIME when building from HEAD
       build_id = Utils.git_short_head(length: 8) || "head"
-      build_time = Time.now.utc.iso8601
+      build_time = Utils.git_time(commit: "HEAD").utc.iso8601
     else
-      # Use the tag (v0.YYYYMMDD.N) for BUILD_ID and derive BUILD_TIME from the date segment
-      tag = stable.specs[:tag]
-      build_id = tag.delete_prefix("v")
-      # Expect build_id like "0.20250805.0"
-      if (m = build_id.match(/^\d+\.(\d{8})(?:\.\d+)*$/))
-        ymd = m[1]
-        build_time = "#{ymd[0,4]}-#{ymd[4,2]}-#{ymd[6,2]}T00:00:00Z"
-      else
-        build_time = Time.now.utc.iso8601
-      end
+      # Always use the pinned revision for both BUILD_ID and BUILD_TIME to ensure reproducibility
+      rev = stable.specs[:revision]
+      build_id = stable.specs[:tag].delete_prefix("v")
+      build_time = Utils.git_time(commit: rev).utc.iso8601
     end
 
     system "make", "BUILD_ID=#{build_id}", "BUILD_TIME=#{build_time}", "BUILD_HOST=#{build_host}"
