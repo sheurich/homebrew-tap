@@ -11,10 +11,7 @@ class Boulder < Formula
 
   livecheck do
     url :stable
-    # https://github.com/letsencrypt/boulder/blob/main/docs/release.md
-    # Regex matches tags like:
-    # - v0.20250728.0
-    regex(/^v\d\.(\d{8}(?:\.\d+)*)$/i)
+    strategy :git
   end
 
   depends_on "go" => :build
@@ -23,10 +20,25 @@ class Boulder < Formula
     build_os = Utils.safe_popen_read("go", "env", "GOOS").strip
     build_arch = Utils.safe_popen_read("go", "env", "GOARCH").strip
     build_host = "#{build_os}/#{build_arch}"
-    build_id = stable.specs[:tag].delete_prefix("v")
-    build_time = stable.specs[:revision][0, 8]
-    system "make", "BUILD_ID=#{build_id}", "BUILD_TIME=#{build_time}",
-           "BUILD_HOST=#{build_host}"
+
+    if build.head?
+      # Use short commit for BUILD_ID and current UTC time for BUILD_TIME when building from HEAD
+      build_id = Utils.git_short_head(length: 8) || "head"
+      build_time = Time.now.utc.iso8601
+    else
+      # Use the tag (v0.YYYYMMDD.N) for BUILD_ID and derive BUILD_TIME from the date segment
+      tag = stable.specs[:tag]
+      build_id = tag.delete_prefix("v")
+      # Expect build_id like "0.20250805.0"
+      if (m = build_id.match(/^\d+\.(\d{8})(?:\.\d+)*$/))
+        ymd = m[1]
+        build_time = "#{ymd[0,4]}-#{ymd[4,2]}-#{ymd[6,2]}T00:00:00Z"
+      else
+        build_time = Time.now.utc.iso8601
+      end
+    end
+
+    system "make", "BUILD_ID=#{build_id}", "BUILD_TIME=#{build_time}", "BUILD_HOST=#{build_host}"
     bin.install Dir["bin/*"]
   end
 
