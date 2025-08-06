@@ -19,6 +19,7 @@ class Boulder < Formula
   depends_on "go" => :build
 
   def install
+    # Derive Go TARGET platform from 'go env' (Homebrew does not cross-compile here).
     build_os = Utils.safe_popen_read("go", "env", "GOOS").strip
     build_arch = Utils.safe_popen_read("go", "env", "GOARCH").strip
     build_host = "#{build_os}/#{build_arch}"
@@ -33,13 +34,12 @@ class Boulder < Formula
       commit_ref = stable.specs[:revision]
     end
 
-    # Obtain commit time in ISO 8601 (%cI) from the staged git repo to ensure reproducibility.
-    # Fail fast if we cannot determine it.
-    build_time = nil
-    Dir.chdir(buildpath) do
-      build_time = Utils.safe_popen_read("git", "show", "-s", "--format=%cI", commit_ref).strip
-    end
-    odie "Failed to determine commit time for #{commit_ref}" if build_time.to_s.empty?
+    # Use Homebrew's public Utils::Git + Utils.popen_read to query the repo-scoped commit timestamp without raw shell-outs.
+    raw_time = Utils.popen_read(Utils::Git.git, "show", "-s", "--format=%cI", commit_ref, chdir: buildpath).to_s.strip
+    odie "Failed to determine commit time for #{commit_ref}" if raw_time.empty?
+
+    # Normalize to UTC Zulu. Ruby's Time parses ISO 8601 with timezone, then convert to UTC and emit ISO 8601 with 'Z'.
+    build_time = Time.iso8601(raw_time).utc.iso8601
 
     system "make", "BUILD_ID=#{build_id}", "BUILD_TIME=#{build_time}", "BUILD_HOST=#{build_host}"
     bin.install Dir["bin/*"]
