@@ -28,9 +28,9 @@ additional formulas outside of Homebrew core. It currently contains two formulas
 
 ### Livecheck strategies
 
-- Both formulas use the default Git livecheck strategy:
-  - Boulder tags follow `v0.YYYYMMDD.N` (e.g., `v0.20250805.0`) and are detected without custom regex.
-  - Ingest uses SemVer-like tags (e.g., `v0.15.0`) and is also detected by the Git strategy.
+Both formulas use the GitHub tags livecheck strategy with a custom regex:
+- **Boulder:** Detects `v0.YYYYMMDD.N` tags using `regex(/^v?(0\.\d{8}\.\d+)$/i)`.
+- **Ingest:** Detects SemVer tags like `v0.15.0` using `regex(/^v?(\d+\.\d+\.\d+)$/i)`.
 
 ### Bump PRs and auto-merge
 
