@@ -2,8 +2,8 @@ class Ingest < Formula
   desc "Parse directories of plain text files into markdown for AI/LLMs"
   homepage "https://github.com/sammcj/ingest"
   url "https://github.com/sammcj/ingest.git",
-    tag:      "v0.15.0",
-    revision: "022a3b073642657744d96d79dff27224d08e65ed"
+    tag:      "v0.15.1",
+    revision: "50b94f6d95eff18ed263f79eb35edfed01b7cf44"
   license "MIT"
 
   head "https://github.com/sammcj/ingest.git",
