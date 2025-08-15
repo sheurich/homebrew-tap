@@ -31,7 +31,7 @@ additional formulas outside of Homebrew core. It currently contains three formul
 
 ### Livecheck strategies
 
-Both formulas use the GitHub tags livecheck strategy with a custom regex:
+All formulas use the GitHub tags livecheck strategy with a custom regex:
 - **Boulder:** Detects `v0.YYYYMMDD.N` tags using `regex(/^v?(0\.\d{8}\.\d+)$/i)`.
 - **DraftForge:** Detects SemVer tags like `v0.47.0` using `regex(/^v?(\d+\.\d+\.\d+)$/i)`.
 - **Ingest:** Detects SemVer tags like `v0.15.0` using `regex(/^v?(\d+\.\d+\.\d+)$/i)`.

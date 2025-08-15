@@ -25,7 +25,7 @@ class Draftforge < Formula
   license "BSD-3-Clause"
 
   livecheck do
-    url :stable
+    url "https://github.com/ietf-tools/editor"
     strategy :github_tags
     # Only match proper semver tags like X.Y.Z and capture the version
     regex(/^v?(\d+\.\d+\.\d+)$/i)
