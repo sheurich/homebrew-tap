@@ -36,7 +36,7 @@ jobs:
         uses: Homebrew/actions/setup-homebrew@master
 
       - name: Tap local repository
-        run: brew tap sheurich/tap "file://$(pwd)"
+        run: brew tap local/tap "file://$(pwd)"
 
       - name: Cache Homebrew Bundler RubyGems
         id: cache
@@ -57,7 +57,7 @@ jobs:
         run: |
           # Derive names safely, quoting all variables to avoid word splitting/globbing
           FORMULA_SIMPLE_NAME="$(printf '%s' "$PR_HEAD_REF" | sed -E 's/^bump-([^-]+)-.*/\1/')"
-          TAP_NAME="sheurich/tap"
+          TAP_NAME="local/tap"
           FORMULA_FULL_NAME="$TAP_NAME/$FORMULA_SIMPLE_NAME"
           {
             printf 'formula_simple_name=%s\n' "$FORMULA_SIMPLE_NAME"
