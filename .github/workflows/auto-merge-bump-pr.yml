@@ -5,7 +5,7 @@
 ---
 name: Validate and Auto-Merge Bump PR (Dynamic)
 
-'on':
+"on":
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
 
@@ -36,7 +36,7 @@ jobs:
         uses: Homebrew/actions/setup-homebrew@master
 
       - name: Tap local repository
-        run: brew tap sheurich/tap ./
+        run: brew tap sheurich/tap "file://$(pwd)"
 
       - name: Cache Homebrew Bundler RubyGems
         id: cache
@@ -68,27 +68,29 @@ jobs:
       - name: Run brew style
         env:
           FORMULA_FULL_NAME: ${{ steps.formula_info.outputs.formula_full_name }}
+          HOMEBREW_NO_INSTALL_FROM_API: 1
         run: |
           echo "Running style for: $FORMULA_FULL_NAME"
           brew style "$FORMULA_FULL_NAME"
 
-      - name: Run brew audit
+      - name: Run brew install, test, and audit
         env:
           FORMULA_FULL_NAME: ${{ steps.formula_info.outputs.formula_full_name }}
+          FORMULA_SIMPLE_NAME: ${{ steps.formula_info.outputs.formula_simple_name }}
+          HOMEBREW_NO_INSTALL_FROM_API: 1
         run: |
-          echo "Auditing: $FORMULA_FULL_NAME"
-          brew audit --online "$FORMULA_FULL_NAME"
-
-      - name: Run brew install and test
-        env:
-          FORMULA_FULL_NAME: ${{ steps.formula_info.outputs.formula_full_name }}
-        run: |
+          set -e
           echo "Installing from source: $FORMULA_FULL_NAME"
           brew install --build-from-source "$FORMULA_FULL_NAME"
-          echo "Testing formula: $FORMULA_FULL_NAME"
-          brew test "$FORMULA_FULL_NAME"
-          echo "Uninstalling formula: $FORMULA_FULL_NAME"
-          brew uninstall "$FORMULA_FULL_NAME"
+
+          echo "Auditing: $FORMULA_SIMPLE_NAME"
+          brew audit --strict --online "$FORMULA_SIMPLE_NAME"
+
+          echo "Testing formula: $FORMULA_SIMPLE_NAME"
+          brew test "$FORMULA_SIMPLE_NAME"
+
+          echo "Uninstalling formula: $FORMULA_SIMPLE_NAME"
+          brew uninstall "$FORMULA_SIMPLE_NAME"
 
       - name: Auto-merge PR
         env:
@@ -97,7 +99,7 @@ jobs:
           PR_BRANCH: ${{ github.event.pull_request.head.ref }}
         run: |
           echo "Attempting to merge PR #${PR_NUMBER} for branch: ${PR_BRANCH}"
-          # Respect checks; do not override protections. Remove --admin.
+          # Respect checks; do not override protections.
           if gh pr merge "$PR_NUMBER" --squash --delete-branch; then
             echo "Successfully merged PR #${PR_NUMBER} and deleted branch: ${PR_BRANCH}"
           else
