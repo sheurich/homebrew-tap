@@ -64,28 +64,28 @@ jobs:
 
       - name: Run brew style
         env:
-          FORMULA_FULL_NAME: ${{ steps.formula_info.outputs.formula_full_name }}
+          FORMULA_PATH: "Formula/${{ steps.formula_info.outputs.formula_simple_name }}.rb"
         run: |
-          echo "Running style for: $FORMULA_FULL_NAME"
-          brew style "$FORMULA_FULL_NAME"
+          echo "Running style for: $FORMULA_PATH"
+          brew style "$FORMULA_PATH"
 
       - name: Run brew audit
         env:
-          FORMULA_FULL_NAME: ${{ steps.formula_info.outputs.formula_full_name }}
+          FORMULA_PATH: "Formula/${{ steps.formula_info.outputs.formula_simple_name }}.rb"
         run: |
-          echo "Auditing: $FORMULA_FULL_NAME"
-          brew audit --online "$FORMULA_FULL_NAME"
+          echo "Auditing: $FORMULA_PATH"
+          brew audit --online "$FORMULA_PATH"
 
       - name: Run brew install and test
         env:
-          FORMULA_FULL_NAME: ${{ steps.formula_info.outputs.formula_full_name }}
+          FORMULA_PATH: "Formula/${{ steps.formula_info.outputs.formula_simple_name }}.rb"
         run: |
-          echo "Installing from source: $FORMULA_FULL_NAME"
-          brew install --build-from-source "$FORMULA_FULL_NAME"
-          echo "Testing formula: $FORMULA_FULL_NAME"
-          brew test "$FORMULA_FULL_NAME"
-          echo "Uninstalling formula: $FORMULA_FULL_NAME"
-          brew uninstall "$FORMULA_FULL_NAME"
+          echo "Installing from source: $FORMULA_PATH"
+          brew install --build-from-source "$FORMULA_PATH"
+          echo "Testing formula: $FORMULA_PATH"
+          brew test "$FORMULA_PATH"
+          echo "Uninstalling formula: $FORMULA_PATH"
+          brew uninstall "$FORMULA_PATH"
 
       - name: Auto-merge PR
         env:
