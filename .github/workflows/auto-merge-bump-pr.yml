@@ -22,8 +22,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
-    # Only for bump-* branches (safer unattended automation)
-    if: startsWith(github.head_ref, 'bump-')
+    # Only for bump-* branches created by the bump action bot.
+    # Verify the actor name from a previous bump PR.
+    if: startsWith(github.head_ref, 'bump-') && github.actor == 'github-actions[bot]'
 
     steps:
       - name: Checkout PR branch
@@ -36,6 +37,7 @@ jobs:
         uses: Homebrew/actions/setup-homebrew@master
 
       - name: Tap local repository
+        # Use a temporary name for the tap to avoid remote mismatch.
         run: brew tap local/tap "file://$(pwd)"
 
       - name: Cache Homebrew Bundler RubyGems
@@ -57,7 +59,7 @@ jobs:
         run: |
           # Derive names safely, quoting all variables to avoid word splitting/globbing
           FORMULA_SIMPLE_NAME="$(printf '%s' "$PR_HEAD_REF" | sed -E 's/^bump-([^-]+)-.*/\1/')"
-          TAP_NAME="local/tap"
+          TAP_NAME="local/tap" # Use the temporary tap name
           FORMULA_FULL_NAME="$TAP_NAME/$FORMULA_SIMPLE_NAME"
           {
             printf 'formula_simple_name=%s\n' "$FORMULA_SIMPLE_NAME"
@@ -91,6 +93,14 @@ jobs:
 
           echo "Uninstalling formula: $FORMULA_SIMPLE_NAME"
           brew uninstall "$FORMULA_SIMPLE_NAME"
+
+      - name: Wait for status checks to pass
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          echo "Waiting for all status checks to pass..."
+          gh pr checks "$PR_NUMBER" --watch --interval 30 --timeout 5m
 
       - name: Auto-merge PR
         env:
