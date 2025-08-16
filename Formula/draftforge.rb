@@ -26,6 +26,10 @@ class Draftforge < Formula
 
   license "BSD-3-Clause"
 
+  # Skip Homebrew's automatic dylib path fixing for Electron apps
+  # Electron frameworks have pre-compiled libraries that can't be modified
+  skip_clean :install_linkage
+
   livecheck do
     url "https://github.com/ietf-tools/editor"
     strategy :github_tags
