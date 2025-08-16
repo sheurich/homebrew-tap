@@ -17,8 +17,8 @@ additional formulas outside of Homebrew core. It currently contains three formul
 
 - `Formula/boulder.rb` builds [Boulder](https://github.com/letsencrypt/boulder) from the official GitHub repository and
   installs the compiled binaries.
-- `Formula/draftforge.rb` installs [DraftForge](https://github.com/ietf-tools/editor) using prebuilt binaries
-  from the official GitHub releases.
+- `Formula/draftforge.rb` builds [DraftForge](https://github.com/ietf-tools/editor) from source and
+  installs the compiled application.
 - `Formula/ingest.rb` builds [Ingest](https://github.com/sammcj/ingest) from the official GitHub repository and
   installs the compiled binaries.
 - `.github/workflows/update-tap.yml` checks twice daily for new releases and
