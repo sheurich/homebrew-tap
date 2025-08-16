@@ -1,8 +1,8 @@
 # Homebrew Tap
 
 This repository hosts the **sheurich/tap** Homebrew tap. A tap allows you to provide
-additional formulas outside of Homebrew core. It currently contains two formulas,
-`boulder` and `ingest`, and includes automation to keep them up to date.
+additional formulas outside of Homebrew core. It currently contains three formulas,
+`boulder`, `ingest`, and `draftforge`, and includes automation to keep them up to date.
 
 ## Repository overview
 
@@ -10,12 +10,15 @@ additional formulas outside of Homebrew core. It currently contains two formulas
 .
 ├── Formula/                # Homebrew formulas live here
 │   ├── boulder.rb          # ACME-based certificate authority
+│   ├── draftforge.rb       # Internet-Draft editor (DraftForge)
 │   └── ingest.rb           # Plain text file parser for AI/LLMs
 └── .github/workflows/      # GitHub Actions for automatic updates
 ```
 
 - `Formula/boulder.rb` builds [Boulder](https://github.com/letsencrypt/boulder) from the official GitHub repository and
   installs the compiled binaries.
+- `Formula/draftforge.rb` installs [DraftForge](https://github.com/ietf-tools/editor) using prebuilt binaries
+  from the official GitHub releases.
 - `Formula/ingest.rb` builds [Ingest](https://github.com/sammcj/ingest) from the official GitHub repository and
   installs the compiled binaries.
 - `.github/workflows/update-tap.yml` checks twice daily for new releases and
@@ -28,8 +31,9 @@ additional formulas outside of Homebrew core. It currently contains two formulas
 
 ### Livecheck strategies
 
-Both formulas use the GitHub tags livecheck strategy with a custom regex:
+All formulas use the GitHub tags livecheck strategy with a custom regex:
 - **Boulder:** Detects `v0.YYYYMMDD.N` tags using `regex(/^v?(0\.\d{8}\.\d+)$/i)`.
+- **DraftForge:** Detects SemVer tags like `v0.47.0` using `regex(/^v?(\d+\.\d+\.\d+)$/i)`.
 - **Ingest:** Detects SemVer tags like `v0.15.0` using `regex(/^v?(\d+\.\d+\.\d+)$/i)`.
 
 ### Bump PRs and auto-merge
@@ -53,10 +57,11 @@ Both formulas use the GitHub tags livecheck strategy with a custom regex:
 
 ## Installation
 
-To install Boulder or Ingest directly from this tap, run:
+To install Boulder, DraftForge, or Ingest directly from this tap, run:
 
 ```bash
 brew install sheurich/tap/boulder
+brew install sheurich/tap/draftforge
 brew install sheurich/tap/ingest
 ```
 
@@ -65,6 +70,7 @@ Alternatively, add the tap first and then install:
 ```bash
 brew tap sheurich/tap
 brew install boulder
+brew install draftforge
 brew install ingest
 ```
 
@@ -75,6 +81,7 @@ brew install ingest
    - Style (Rubocop via Homebrew):
      ```bash
      brew style --formula Formula/boulder.rb
+     brew style --formula Formula/draftforge.rb
      brew style --formula Formula/ingest.rb
      # or for the entire tap
      brew style .
@@ -83,9 +90,11 @@ brew install ingest
      ```bash
      # offline checks
      brew audit --strict --formula Formula/boulder.rb
+     brew audit --strict --formula Formula/draftforge.rb
      brew audit --strict --formula Formula/ingest.rb
      # enable online checks (queries upstream, e.g., GitHub releases)
      brew audit --online --strict --formula Formula/boulder.rb
+     brew audit --online --strict --formula Formula/draftforge.rb
      brew audit --online --strict --formula Formula/ingest.rb
      # or for the entire tap
      brew audit --online --strict --tap sheurich/tap
