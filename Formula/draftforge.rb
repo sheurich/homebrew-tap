@@ -1,8 +1,8 @@
 class Draftforge < Formula
   desc "Fully featured editor to write, review, refine and submit Internet-Drafts"
   homepage "https://github.com/ietf-tools/editor"
-  url "https://github.com/ietf-tools/editor/archive/refs/tags/v0.47.0.tar.gz"
-  sha256 "d5558cd419c8d46bdc958064cb97f963d1ea793866414c025906ec15033512ed"
+  url "https://github.com/ietf-tools/editor/archive/refs/tags/0.47.0.tar.gz"
+  sha256 "b2f1f094f34df91a24a561dbe2b2203ddd23c0e0c51185f69f66c994445f52ba"
   license "BSD-3-Clause"
 
   depends_on "node@20"
