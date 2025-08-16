@@ -1,3 +1,5 @@
+require "fileutils"
+
 class Draftforge < Formula
   desc "Fully featured editor to write, review, refine and submit Internet-Drafts"
   homepage "https://github.com/ietf-tools/editor"
@@ -33,7 +35,24 @@ class Draftforge < Formula
 
   def install
     if OS.mac?
-      prefix.install "DraftForge.app"
+      if File.directory?("DraftForge.app")
+        # Standard case: zip extracted with app bundle intact
+        prefix.install "DraftForge.app"
+      elsif File.directory?("Contents")
+        # Homebrew flattened the zip extraction - rebuild the app bundle structure
+        # Get all items before creating the target directory
+        items_to_move = Dir.glob("*")
+        
+        app_path = prefix/"DraftForge.app"
+        app_path.mkpath
+        
+        # Move all extracted contents into the app bundle
+        items_to_move.each do |item|
+          FileUtils.mv(item, app_path)
+        end
+      else
+        odie "Could not find DraftForge app bundle or Contents directory in extracted files"
+      end
     else
       # For Linux, the tarball extracts to a versioned directory
       extracted_dir = "ietf-draftforge-linux-#{Hardware::CPU.arm? ? "arm64" : "x64"}-#{version}"
