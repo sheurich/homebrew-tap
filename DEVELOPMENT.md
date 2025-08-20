@@ -24,6 +24,9 @@ echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> ~/.bashrc
 sudo apt-get update && sudo apt-get install -y build-essential
 brew install gcc
 
+# Install development tools
+brew install actionlint
+
 # Add this tap to your local Homebrew
 brew tap sheurich/tap /path/to/this/repo
 ```
@@ -63,6 +66,11 @@ brew livecheck sheurich/tap/ingest
 # Get formula information
 brew info sheurich/tap/boulder
 brew info sheurich/tap/ingest
+
+# Workflow validation
+actionlint .github/workflows/update-tap.yml
+actionlint .github/workflows/auto-merge-bump-pr.yml
+actionlint  # validate all workflows
 ```
 
 ### Isolated Build Testing
@@ -89,8 +97,8 @@ rm -rf "$TMPBREW"
 - **GCC**: Compiler collection for building from source
 - **Ruby**: Required for Homebrew development (bundled with Homebrew)
 - **RuboCop**: Style checker (installed via `brew style`)
-- **ActionLint**: GitHub Actions workflow linter
-- **ShellCheck**: Shell script analyzer
+- **ActionLint**: GitHub Actions workflow linter (`brew install actionlint`)
+- **ShellCheck**: Shell script analyzer (dependency of actionlint)
 
 ### Git Hooks
 
