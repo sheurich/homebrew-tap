@@ -30,15 +30,18 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-      - name: Check for existing bump PRs
-        id: check-prs
+      - name: Check and cleanup stale bump branches
+        id: cleanup-branches
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          echo "Checking for existing bump PRs..."
+          echo "Checking for existing bump PRs and stale branches..."
           
           # Get open PRs with bump- prefix
           EXISTING_PRS=$(gh pr list --state open --json number,headRefName,title | jq -r '.[] | select(.headRefName | startswith("bump-")) | "\(.headRefName): PR #\(.number) - \(.title)"')
+          
+          # Get all remote bump- branches
+          BUMP_BRANCHES=$(git ls-remote --heads origin 'bump-*' | awk '{print $2}' | sed 's|refs/heads/||' || true)
           
           if [[ -n "$EXISTING_PRS" ]]; then
             echo "Found existing bump PRs:"
@@ -52,6 +55,25 @@ jobs:
           else
             echo "No existing bump PRs found"
             echo "has_existing_prs=false" >> "$GITHUB_OUTPUT"
+          fi
+          
+          # Clean up stale bump branches that don't have open PRs
+          if [[ -n "$BUMP_BRANCHES" ]]; then
+            echo "Found bump branches: $BUMP_BRANCHES"
+            
+            # Extract just branch names from existing PRs
+            EXISTING_PR_BRANCHES=$(echo "$EXISTING_PRS" | cut -d: -f1 || true)
+            
+            for branch in $BUMP_BRANCHES; do
+              if [[ -n "$EXISTING_PR_BRANCHES" ]] && echo "$EXISTING_PR_BRANCHES" | grep -q "^$branch$"; then
+                echo "Keeping branch $branch (has open PR)"
+              else
+                echo "Deleting stale branch: $branch"
+                git push origin --delete "$branch" || echo "Failed to delete $branch (may not exist)"
+              fi
+            done
+          else
+            echo "No bump branches found"
           fi
 
       - name: Update Homebrew formulae
@@ -69,8 +91,8 @@ jobs:
         with:
           script: |
             const stepOutcome = '${{ steps.bump-formula.outcome }}';
-            const hasExistingPrs = '${{ steps.check-prs.outputs.has_existing_prs }}' === 'true';
-            const existingPrs = `${{ steps.check-prs.outputs.existing_prs }}`;
+            const hasExistingPrs = '${{ steps.cleanup-branches.outputs.has_existing_prs }}' === 'true';
+            const existingPrs = `${{ steps.cleanup-branches.outputs.existing_prs }}`;
             
             core.summary.addHeading('Update Tap Summary');
             
