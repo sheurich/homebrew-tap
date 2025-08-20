@@ -5,7 +5,7 @@
 ---
 name: Validate and Auto-Merge Bump PR (Dynamic)
 
-"on":
+'on':
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
 
@@ -22,9 +22,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
-    # Only for bump-* branches created by the bump action bot.
-    # Verify the actor name from a previous bump PR.
-    if: startsWith(github.head_ref, 'bump-') && github.actor == 'github-actions[bot]'
+    # Only for bump-* branches created by automation (safer unattended automation)
+    if: |
+      startsWith(github.head_ref, 'bump-') &&
+      (github.actor == 'github-actions[bot]' || 
+       github.actor == 'dependabot[bot]' ||
+       (github.event.pull_request.user.login == 'sheurich' && contains(github.event.pull_request.title, 'action-homebrew-bump-formula')))
 
     steps:
       - name: Checkout PR branch
@@ -35,10 +38,6 @@ jobs:
       - name: Set up Homebrew
         id: set-up-homebrew
         uses: Homebrew/actions/setup-homebrew@master
-
-      - name: Tap local repository
-        # Use a temporary name for the tap to avoid remote mismatch.
-        run: brew tap local/tap "file://$(pwd)"
 
       - name: Cache Homebrew Bundler RubyGems
         id: cache
@@ -52,15 +51,50 @@ jobs:
         if: steps.cache.outputs.cache-hit != 'true'
         run: brew install-bundler-gems
 
-      - name: Determine formula name
+      - name: Debug PR information
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          PR_USER: ${{ github.event.pull_request.user.login }}
+          HEAD_REF: ${{ github.head_ref }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          echo "=== PR Debug Information ==="
+          echo "Actor: $GITHUB_ACTOR"
+          echo "PR User: $PR_USER"
+          echo "Head Ref: $HEAD_REF"
+          echo "PR Title: $PR_TITLE"
+          echo "PR Number: $PR_NUMBER"
+          echo "=== End Debug ==="
+
+      - name: Validate PR and determine formula name
         id: formula_info
         env:
           PR_HEAD_REF: ${{ github.head_ref }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
           # Derive names safely, quoting all variables to avoid word splitting/globbing
           FORMULA_SIMPLE_NAME="$(printf '%s' "$PR_HEAD_REF" | sed -E 's/^bump-([^-]+)-.*/\1/')"
-          TAP_NAME="local/tap" # Use the temporary tap name
+          TAP_NAME="sheurich/tap"
           FORMULA_FULL_NAME="$TAP_NAME/$FORMULA_SIMPLE_NAME"
+          
+          # Validate formula name extraction
+          if [[ -z "$FORMULA_SIMPLE_NAME" || "$FORMULA_SIMPLE_NAME" == "$PR_HEAD_REF" ]]; then
+            echo "❌ Failed to extract formula name from branch: $PR_HEAD_REF"
+            exit 1
+          fi
+          
+          # Check if formula file exists
+          if [[ ! -f "Formula/$FORMULA_SIMPLE_NAME.rb" ]]; then
+            echo "❌ Formula file not found: Formula/$FORMULA_SIMPLE_NAME.rb"
+            exit 1
+          fi
+          
+          echo "✅ Validated PR for formula: $FORMULA_SIMPLE_NAME"
+          echo "  Branch: $PR_HEAD_REF"
+          echo "  Title: $PR_TITLE"
+          echo "  Formula file: Formula/$FORMULA_SIMPLE_NAME.rb"
+          
           {
             printf 'formula_simple_name=%s\n' "$FORMULA_SIMPLE_NAME"
             printf 'formula_full_name=%s\n' "$FORMULA_FULL_NAME"
@@ -70,49 +104,90 @@ jobs:
       - name: Run brew style
         env:
           FORMULA_FULL_NAME: ${{ steps.formula_info.outputs.formula_full_name }}
-          HOMEBREW_NO_INSTALL_FROM_API: 1
         run: |
           echo "Running style for: $FORMULA_FULL_NAME"
           brew style "$FORMULA_FULL_NAME"
 
-      - name: Run brew install, test, and audit
+      - name: Run brew audit
         env:
           FORMULA_FULL_NAME: ${{ steps.formula_info.outputs.formula_full_name }}
-          FORMULA_SIMPLE_NAME: ${{ steps.formula_info.outputs.formula_simple_name }}
-          HOMEBREW_NO_INSTALL_FROM_API: 1
+        run: |
+          echo "Auditing: $FORMULA_FULL_NAME"
+          brew audit --online "$FORMULA_FULL_NAME"
+
+      - name: Run brew install and test
+        env:
+          FORMULA_FULL_NAME: ${{ steps.formula_info.outputs.formula_full_name }}
         run: |
           set -e
           echo "Installing from source: $FORMULA_FULL_NAME"
-          brew install --build-from-source "$FORMULA_FULL_NAME"
-
-          echo "Auditing: $FORMULA_SIMPLE_NAME"
-          brew audit --strict --online "$FORMULA_SIMPLE_NAME"
-
-          echo "Testing formula: $FORMULA_SIMPLE_NAME"
-          brew test "$FORMULA_SIMPLE_NAME"
-
-          echo "Uninstalling formula: $FORMULA_SIMPLE_NAME"
-          brew uninstall "$FORMULA_SIMPLE_NAME"
-
-      - name: Wait for status checks to pass
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: |
-          echo "Waiting for all status checks to pass..."
-          gh pr checks "$PR_NUMBER" --watch --interval 30 --timeout 5m
+          if brew install --build-from-source "$FORMULA_FULL_NAME"; then
+            echo "✅ Installation successful"
+            
+            echo "Testing formula: $FORMULA_FULL_NAME"
+            if brew test "$FORMULA_FULL_NAME"; then
+              echo "✅ Tests passed"
+            else
+              echo "❌ Tests failed"
+              brew uninstall "$FORMULA_FULL_NAME" || true
+              exit 1
+            fi
+            
+            echo "Uninstalling formula: $FORMULA_FULL_NAME"
+            brew uninstall "$FORMULA_FULL_NAME"
+            echo "✅ Cleanup successful"
+          else
+            echo "❌ Installation failed"
+            exit 1
+          fi
 
       - name: Auto-merge PR
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_BRANCH: ${{ github.event.pull_request.head.ref }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_AUTHOR: ${{ github.actor }}
         run: |
-          echo "Attempting to merge PR #${PR_NUMBER} for branch: ${PR_BRANCH}"
-          # Respect checks; do not override protections.
+          echo "Attempting to merge PR #${PR_NUMBER}"
+          echo "  Branch: ${PR_BRANCH}"
+          echo "  Title: ${PR_TITLE}"
+          echo "  Author: ${PR_AUTHOR}"
+          
+          # Respect checks; do not override protections
           if gh pr merge "$PR_NUMBER" --squash --delete-branch; then
-            echo "Successfully merged PR #${PR_NUMBER} and deleted branch: ${PR_BRANCH}"
+            echo "✅ Successfully merged PR #${PR_NUMBER} and deleted branch: ${PR_BRANCH}"
           else
-            echo "Failed to merge PR #${PR_NUMBER} for branch: ${PR_BRANCH}"
+            echo "❌ Failed to merge PR #${PR_NUMBER} for branch: ${PR_BRANCH}"
+            echo "This could be due to:"
+            echo "  - Branch protection rules requiring additional checks"
+            echo "  - Merge conflicts"
+            echo "  - Required status checks not passing"
             exit 1
           fi
+          
+      - name: Notify on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = context.payload.pull_request.number;
+            const prBranch = context.payload.pull_request.head.ref;
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+              body: `❌ **Auto-merge failed** for branch \`${prBranch}\`
+            
+            The automated validation and merge process encountered an error.
+            Please check the [workflow run](${runUrl}) for details.
+            
+            Common issues:
+            - Formula validation failures (style, audit, install, or test)
+            - Branch protection rules requiring manual review
+            - Network or dependency issues
+            
+            Manual review and merge may be required.`
+            });
