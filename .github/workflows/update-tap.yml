@@ -30,13 +30,37 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
+      - name: Check for existing bump PRs
+        id: check-prs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "Checking for existing bump PRs..."
+          
+          # Get open PRs with bump- prefix
+          EXISTING_PRS=$(gh pr list --state open --json number,headRefName,title | jq -r '.[] | select(.headRefName | startswith("bump-")) | "\(.headRefName): PR #\(.number) - \(.title)"')
+          
+          if [[ -n "$EXISTING_PRS" ]]; then
+            echo "Found existing bump PRs:"
+            echo "$EXISTING_PRS"
+            {
+              echo "existing_prs<<EOF"
+              echo "$EXISTING_PRS"
+              echo "EOF"
+              echo "has_existing_prs=true"
+            } >> "$GITHUB_OUTPUT"
+          else
+            echo "No existing bump PRs found"
+            echo "has_existing_prs=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Update Homebrew formulae
         uses: dawidd6/action-homebrew-bump-formula@v4
         with:
           livecheck: true
           tap: sheurich/tap
           token: "${{ secrets.HOMEBREW_GITHUB_API_TOKEN }}"
-          force: true
+        continue-on-error: true
         id: bump-formula
 
       - name: Summarize updates
@@ -45,20 +69,39 @@ jobs:
         with:
           script: |
             const stepOutcome = '${{ steps.bump-formula.outcome }}';
+            const hasExistingPrs = '${{ steps.check-prs.outputs.has_existing_prs }}' === 'true';
+            const existingPrs = `${{ steps.check-prs.outputs.existing_prs }}`;
             
             core.summary.addHeading('Update Tap Summary');
             
+            if (hasExistingPrs) {
+              core.summary.addRaw('📝 **Existing bump PRs found:**');
+              core.summary.addRaw('\n```');
+              core.summary.addRaw('\n' + existingPrs);
+              core.summary.addRaw('\n```\n');
+            }
+            
             if (stepOutcome === 'success') {
-              core.summary.addRaw('✅ Formula update completed successfully.');
-              core.summary.addRaw('\n\n- New PRs created for outdated formulae');
-              core.summary.addRaw('\n- Existing PRs updated if formulae changed');
-              core.summary.addRaw('\n- No action taken if all formulae are up-to-date');
+              core.summary.addRaw('✅ **Formula update completed successfully**');
+              if (hasExistingPrs) {
+                core.summary.addRaw('\n\n- Attempted to update formulae despite existing PRs');
+                core.summary.addRaw('\n- New PRs created for any newly outdated formulae');
+              } else {
+                core.summary.addRaw('\n\n- New PRs created for outdated formulae');
+                core.summary.addRaw('\n- No action taken if all formulae are up-to-date');
+              }
             } else if (stepOutcome === 'failure') {
-              core.summary.addRaw('❌ Formula update failed. Check the logs for details.');
-              core.summary.addRaw('\n\nCommon failure reasons:');
-              core.summary.addRaw('\n- Network or API connectivity issues');
-              core.summary.addRaw('\n- Formula syntax or validation errors');
-              core.summary.addRaw('\n- GitHub API rate limits');
+              if (hasExistingPrs) {
+                core.summary.addRaw('⚠️ **Formula update failed (likely due to duplicate PRs)**');
+                core.summary.addRaw('\n\nThis is expected when bump PRs already exist for the latest versions.');
+                core.summary.addRaw('\nExisting PRs should be reviewed and merged, or will be auto-merged if validation passes.');
+              } else {
+                core.summary.addRaw('❌ **Formula update failed**');
+                core.summary.addRaw('\n\nCommon failure reasons:');
+                core.summary.addRaw('\n- Network or API connectivity issues');
+                core.summary.addRaw('\n- Formula syntax or validation errors');
+                core.summary.addRaw('\n- GitHub API rate limits');
+              }
             } else {
               core.summary.addRaw('ℹ️ Formula update was skipped or cancelled.');
             }
