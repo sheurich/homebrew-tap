@@ -31,9 +31,16 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.ref }}
 
+      - name: Configure Git
+        run: |
+          git config --global init.defaultBranch main
+          git config --global advice.defaultBranchName false
+
       - name: Set up Homebrew
         id: set-up-homebrew
         uses: Homebrew/actions/setup-homebrew@master
+        env:
+          HOMEBREW_NO_ENV_HINTS: 1
 
       - name: Cache Homebrew Bundler RubyGems
         id: cache
@@ -114,15 +121,24 @@ jobs:
       - name: Run brew install and test
         env:
           FORMULA_FULL_NAME: ${{ steps.formula_info.outputs.formula_full_name }}
+          HOMEBREW_NO_INSTALL_CLEANUP: 1
+          HOMEBREW_NO_ENV_HINTS: 1
         run: |
           set -e
           echo "Installing from source: $FORMULA_FULL_NAME"
+          
+          # Track timing
+          START_TIME=$(date +%s)
+          
           if brew install --build-from-source "$FORMULA_FULL_NAME"; then
-            echo "✅ Installation successful"
+            INSTALL_TIME=$(($(date +%s) - START_TIME))
+            echo "✅ Installation successful (${INSTALL_TIME}s)"
             
             echo "Testing formula: $FORMULA_FULL_NAME"
+            TEST_START=$(date +%s)
             if brew test "$FORMULA_FULL_NAME"; then
-              echo "✅ Tests passed"
+              TEST_TIME=$(($(date +%s) - TEST_START))
+              echo "✅ Tests passed (${TEST_TIME}s)"
             else
               echo "❌ Tests failed"
               brew uninstall "$FORMULA_FULL_NAME" || true
@@ -131,7 +147,8 @@ jobs:
             
             echo "Uninstalling formula: $FORMULA_FULL_NAME"
             brew uninstall "$FORMULA_FULL_NAME"
-            echo "✅ Cleanup successful"
+            TOTAL_TIME=$(($(date +%s) - START_TIME))
+            echo "✅ Cleanup successful (total: ${TOTAL_TIME}s)"
           else
             echo "❌ Installation failed"
             exit 1
@@ -153,6 +170,10 @@ jobs:
           # Respect checks; do not override protections
           if gh pr merge "$PR_NUMBER" --squash --delete-branch; then
             echo "✅ Successfully merged PR #${PR_NUMBER} and deleted branch: ${PR_BRANCH}"
+            echo "🏆 Auto-merge workflow completed successfully!"
+            echo "  Formula: $(echo "$PR_TITLE" | cut -d' ' -f1)"
+            echo "  Version: $(echo "$PR_TITLE" | cut -d' ' -f2)"
+            echo "  Validation: All checks passed"
           else
             echo "❌ Failed to merge PR #${PR_NUMBER} for branch: ${PR_BRANCH}"
             echo "This could be due to:"
