@@ -44,19 +44,33 @@ jobs:
           echo "Waiting for GitHub API consistency..."
           sleep 5
           echo "Cleaning up existing bump PRs and branches to allow fresh updates..."
-          
-          # Get open PRs with bump- prefix (with retries for API consistency)
-          echo "Checking for existing bump PRs..."
-          for attempt in {1..3}; do
+
+      - name: Get existing bump PRs with retry
+        id: get-existing-prs
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 2
+          max_attempts: 3
+          retry_wait_seconds: 2
+          command: |
             EXISTING_PRS=$(gh pr list --state open --json number,headRefName,title | jq -r '.[] | select(.headRefName | startswith("bump-")) | "\(.headRefName): PR #\(.number) - \(.title)"')
+            echo "existing_prs=$EXISTING_PRS" >> "$GITHUB_OUTPUT"
             if [[ -n "$EXISTING_PRS" ]]; then
-              echo "Found PRs on attempt $attempt"
-              break
+              echo "Found existing bump PRs"
             else
-              echo "No PRs found on attempt $attempt, retrying in 2s..."
-              sleep 2
+              echo "No existing bump PRs found"
             fi
-          done
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Process existing bump PRs and cleanup
+        id: process-cleanup
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXISTING_PRS: ${{ steps.get-existing-prs.outputs.existing_prs }}
+          START_TIME: ${{ steps.cleanup-branches.outputs.start_time }}
+        run: |
+          echo "Processing existing bump PRs..."
           
           if [[ -n "$EXISTING_PRS" ]]; then
             echo "Found existing bump PRs - closing them to create fresh ones:"
@@ -73,10 +87,14 @@ jobs:
               echo "$EXISTING_PRS"
               echo "EOF"
               echo "had_existing_prs=true"
+              echo "start_time=$START_TIME"
             } >> "$GITHUB_OUTPUT"
           else
             echo "No existing bump PRs found"
-            echo "had_existing_prs=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "had_existing_prs=false"
+              echo "start_time=$START_TIME"
+            } >> "$GITHUB_OUTPUT"
           fi
           
           # Delete ALL bump- branches (both from closed PRs and any orphaned ones)
@@ -109,7 +127,7 @@ jobs:
         continue-on-error: true
         id: bump-formula
         env:
-          START_TIME: ${{ steps.cleanup-branches.outputs.start_time }}
+          START_TIME: ${{ steps.process-cleanup.outputs.start_time }}
 
       - name: Summarize updates
         if: always()
@@ -117,8 +135,8 @@ jobs:
         with:
           script: |
             const stepOutcome = '${{ steps.bump-formula.outcome }}';
-            const hadExistingPrs = '${{ steps.cleanup-branches.outputs.had_existing_prs }}' === 'true';
-            const existingPrs = `${{ steps.cleanup-branches.outputs.existing_prs }}`;
+            const hadExistingPrs = '${{ steps.process-cleanup.outputs.had_existing_prs }}' === 'true';
+            const existingPrs = `${{ steps.process-cleanup.outputs.existing_prs }}`;
             
             core.summary.addHeading('Update Tap Summary');
             
