@@ -29,16 +29,48 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --global init.defaultBranch main
+          git config --global advice.defaultBranchName false
 
       - name: Cleanup existing bump branches and PRs
         id: cleanup-branches
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # Track timing and ensure GitHub API consistency
+          START_TIME=$(date +%s)
+          echo "start_time=$START_TIME" >> "$GITHUB_OUTPUT"
+          echo "Workflow started at: $(date -d "@$START_TIME")"
+          echo "Waiting for GitHub API consistency..."
+          sleep 5
           echo "Cleaning up existing bump PRs and branches to allow fresh updates..."
-          
-          # Get open PRs with bump- prefix
-          EXISTING_PRS=$(gh pr list --state open --json number,headRefName,title | jq -r '.[] | select(.headRefName | startswith("bump-")) | "\(.headRefName): PR #\(.number) - \(.title)"')
+
+      - name: Get existing bump PRs with retry
+        id: get-existing-prs
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 2
+          max_attempts: 3
+          retry_wait_seconds: 2
+          command: |
+            EXISTING_PRS=$(gh pr list --state open --json number,headRefName,title | jq -r '.[] | select(.headRefName | startswith("bump-")) | "\(.headRefName): PR #\(.number) - \(.title)"')
+            echo "existing_prs=$EXISTING_PRS" >> "$GITHUB_OUTPUT"
+            if [[ -n "$EXISTING_PRS" ]]; then
+              echo "Found existing bump PRs"
+            else
+              echo "No existing bump PRs found"
+            fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Process existing bump PRs and cleanup
+        id: process-cleanup
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXISTING_PRS: ${{ steps.get-existing-prs.outputs.existing_prs }}
+          START_TIME: ${{ steps.cleanup-branches.outputs.start_time }}
+        run: |
+          echo "Processing existing bump PRs..."
           
           if [[ -n "$EXISTING_PRS" ]]; then
             echo "Found existing bump PRs - closing them to create fresh ones:"
@@ -55,10 +87,14 @@ jobs:
               echo "$EXISTING_PRS"
               echo "EOF"
               echo "had_existing_prs=true"
+              echo "start_time=$START_TIME"
             } >> "$GITHUB_OUTPUT"
           else
             echo "No existing bump PRs found"
-            echo "had_existing_prs=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "had_existing_prs=false"
+              echo "start_time=$START_TIME"
+            } >> "$GITHUB_OUTPUT"
           fi
           
           # Delete ALL bump- branches (both from closed PRs and any orphaned ones)
@@ -75,6 +111,12 @@ jobs:
           fi
           
           echo "Cleanup complete - ready for fresh bump PRs"
+          echo "=== Post-cleanup verification ==="
+          echo "Open PRs after cleanup:"
+          gh pr list --state open --json number,headRefName,title | jq -r '.[] | select(.headRefName | startswith("bump-")) | "  - PR #\(.number): \(.headRefName)"' || echo "  No bump PRs found"
+          echo "Remote bump branches:"
+          git ls-remote --heads origin 'bump-*' | awk '{print "  - " $2}' | sed 's|refs/heads/||' || echo "  No bump branches found"
+          echo "========================="
 
       - name: Update Homebrew formulae
         uses: dawidd6/action-homebrew-bump-formula@v4
@@ -84,6 +126,8 @@ jobs:
           token: "${{ secrets.HOMEBREW_GITHUB_API_TOKEN }}"
         continue-on-error: true
         id: bump-formula
+        env:
+          START_TIME: ${{ steps.process-cleanup.outputs.start_time }}
 
       - name: Summarize updates
         if: always()
@@ -91,8 +135,8 @@ jobs:
         with:
           script: |
             const stepOutcome = '${{ steps.bump-formula.outcome }}';
-            const hadExistingPrs = '${{ steps.cleanup-branches.outputs.had_existing_prs }}' === 'true';
-            const existingPrs = `${{ steps.cleanup-branches.outputs.existing_prs }}`;
+            const hadExistingPrs = '${{ steps.process-cleanup.outputs.had_existing_prs }}' === 'true';
+            const existingPrs = `${{ steps.process-cleanup.outputs.existing_prs }}`;
             
             core.summary.addHeading('Update Tap Summary');
             
