@@ -30,51 +30,51 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-      - name: Check and cleanup stale bump branches
+      - name: Cleanup existing bump branches and PRs
         id: cleanup-branches
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          echo "Checking for existing bump PRs and stale branches..."
+          echo "Cleaning up existing bump PRs and branches to allow fresh updates..."
           
           # Get open PRs with bump- prefix
           EXISTING_PRS=$(gh pr list --state open --json number,headRefName,title | jq -r '.[] | select(.headRefName | startswith("bump-")) | "\(.headRefName): PR #\(.number) - \(.title)"')
           
-          # Get all remote bump- branches
-          BUMP_BRANCHES=$(git ls-remote --heads origin 'bump-*' | awk '{print $2}' | sed 's|refs/heads/||' || true)
-          
           if [[ -n "$EXISTING_PRS" ]]; then
-            echo "Found existing bump PRs:"
+            echo "Found existing bump PRs - closing them to create fresh ones:"
             echo "$EXISTING_PRS"
+            
+            # Close existing bump PRs
+            gh pr list --state open --json number,headRefName | jq -r '.[] | select(.headRefName | startswith("bump-")) | .number' | while read -r pr_num; do
+              echo "Closing PR #$pr_num"
+              gh pr close "$pr_num" --comment "Closing to create updated bump PR with latest version" || echo "Failed to close PR #$pr_num"
+            done
+            
             {
               echo "existing_prs<<EOF"
               echo "$EXISTING_PRS"
               echo "EOF"
-              echo "has_existing_prs=true"
+              echo "had_existing_prs=true"
             } >> "$GITHUB_OUTPUT"
           else
             echo "No existing bump PRs found"
-            echo "has_existing_prs=false" >> "$GITHUB_OUTPUT"
+            echo "had_existing_prs=false" >> "$GITHUB_OUTPUT"
           fi
           
-          # Clean up stale bump branches that don't have open PRs
+          # Delete ALL bump- branches (both from closed PRs and any orphaned ones)
+          BUMP_BRANCHES=$(git ls-remote --heads origin 'bump-*' | awk '{print $2}' | sed 's|refs/heads/||' || true)
+          
           if [[ -n "$BUMP_BRANCHES" ]]; then
-            echo "Found bump branches: $BUMP_BRANCHES"
-            
-            # Extract just branch names from existing PRs
-            EXISTING_PR_BRANCHES=$(echo "$EXISTING_PRS" | cut -d: -f1 || true)
-            
+            echo "Deleting all bump branches to ensure clean state:"
             for branch in $BUMP_BRANCHES; do
-              if [[ -n "$EXISTING_PR_BRANCHES" ]] && echo "$EXISTING_PR_BRANCHES" | grep -q "^$branch$"; then
-                echo "Keeping branch $branch (has open PR)"
-              else
-                echo "Deleting stale branch: $branch"
-                git push origin --delete "$branch" || echo "Failed to delete $branch (may not exist)"
-              fi
+              echo "Deleting branch: $branch"
+              git push origin --delete "$branch" || echo "Failed to delete $branch (may not exist)"
             done
           else
-            echo "No bump branches found"
+            echo "No bump branches found to delete"
           fi
+          
+          echo "Cleanup complete - ready for fresh bump PRs"
 
       - name: Update Homebrew formulae
         uses: dawidd6/action-homebrew-bump-formula@v4
@@ -91,38 +91,37 @@ jobs:
         with:
           script: |
             const stepOutcome = '${{ steps.bump-formula.outcome }}';
-            const hasExistingPrs = '${{ steps.cleanup-branches.outputs.has_existing_prs }}' === 'true';
+            const hadExistingPrs = '${{ steps.cleanup-branches.outputs.had_existing_prs }}' === 'true';
             const existingPrs = `${{ steps.cleanup-branches.outputs.existing_prs }}`;
             
             core.summary.addHeading('Update Tap Summary');
             
-            if (hasExistingPrs) {
-              core.summary.addRaw('📝 **Existing bump PRs found:**');
+            if (hadExistingPrs) {
+              core.summary.addRaw('🧺 **Cleaned up existing bump PRs:**');
               core.summary.addRaw('\n```');
               core.summary.addRaw('\n' + existingPrs);
-              core.summary.addRaw('\n```\n');
+              core.summary.addRaw('\n```');
+              core.summary.addRaw('\n_These were closed and replaced with fresh bump PRs._\n');
             }
             
             if (stepOutcome === 'success') {
               core.summary.addRaw('✅ **Formula update completed successfully**');
-              if (hasExistingPrs) {
-                core.summary.addRaw('\n\n- Attempted to update formulae despite existing PRs');
-                core.summary.addRaw('\n- New PRs created for any newly outdated formulae');
+              if (hadExistingPrs) {
+                core.summary.addRaw('\n\n- Closed existing bump PRs and created fresh ones');
+                core.summary.addRaw('\n- New PRs contain the latest available versions');
               } else {
                 core.summary.addRaw('\n\n- New PRs created for outdated formulae');
                 core.summary.addRaw('\n- No action taken if all formulae are up-to-date');
               }
             } else if (stepOutcome === 'failure') {
-              if (hasExistingPrs) {
-                core.summary.addRaw('⚠️ **Formula update failed (likely due to duplicate PRs)**');
-                core.summary.addRaw('\n\nThis is expected when bump PRs already exist for the latest versions.');
-                core.summary.addRaw('\nExisting PRs should be reviewed and merged, or will be auto-merged if validation passes.');
-              } else {
-                core.summary.addRaw('❌ **Formula update failed**');
-                core.summary.addRaw('\n\nCommon failure reasons:');
-                core.summary.addRaw('\n- Network or API connectivity issues');
-                core.summary.addRaw('\n- Formula syntax or validation errors');
-                core.summary.addRaw('\n- GitHub API rate limits');
+              core.summary.addRaw('❌ **Formula update failed**');
+              core.summary.addRaw('\n\nCommon failure reasons:');
+              core.summary.addRaw('\n- Network or API connectivity issues');
+              core.summary.addRaw('\n- Formula syntax or validation errors');
+              core.summary.addRaw('\n- GitHub API rate limits');
+              core.summary.addRaw('\n- Upstream source changes requiring manual intervention');
+              if (hadExistingPrs) {
+                core.summary.addRaw('\n\n_Note: Existing bump PRs were closed before this attempt._');
               }
             } else {
               core.summary.addRaw('ℹ️ Formula update was skipped or cancelled.');
