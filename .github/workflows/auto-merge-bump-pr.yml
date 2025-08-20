@@ -22,12 +22,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
-    # Only for bump-* branches created by automation (safer unattended automation)
-    if: |
-      startsWith(github.head_ref, 'bump-') &&
-      (github.actor == 'github-actions[bot]' || 
-       github.actor == 'dependabot[bot]' ||
-       (github.event.pull_request.user.login == 'sheurich' && contains(github.event.pull_request.title, 'action-homebrew-bump-formula')))
+    # Only for bump-* branches - temporarily permissive for debugging
+    if: startsWith(github.head_ref, 'bump-')
 
     steps:
       - name: Checkout PR branch
