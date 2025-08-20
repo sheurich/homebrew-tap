@@ -29,16 +29,34 @@ jobs:
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --global init.defaultBranch main
+          git config --global advice.defaultBranchName false
 
       - name: Cleanup existing bump branches and PRs
         id: cleanup-branches
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # Track timing and ensure GitHub API consistency
+          START_TIME=$(date +%s)
+          echo "start_time=$START_TIME" >> "$GITHUB_OUTPUT"
+          echo "Workflow started at: $(date -d "@$START_TIME")"
+          echo "Waiting for GitHub API consistency..."
+          sleep 5
           echo "Cleaning up existing bump PRs and branches to allow fresh updates..."
           
-          # Get open PRs with bump- prefix
-          EXISTING_PRS=$(gh pr list --state open --json number,headRefName,title | jq -r '.[] | select(.headRefName | startswith("bump-")) | "\(.headRefName): PR #\(.number) - \(.title)"')
+          # Get open PRs with bump- prefix (with retries for API consistency)
+          echo "Checking for existing bump PRs..."
+          for attempt in {1..3}; do
+            EXISTING_PRS=$(gh pr list --state open --json number,headRefName,title | jq -r '.[] | select(.headRefName | startswith("bump-")) | "\(.headRefName): PR #\(.number) - \(.title)"')
+            if [[ -n "$EXISTING_PRS" ]]; then
+              echo "Found PRs on attempt $attempt"
+              break
+            else
+              echo "No PRs found on attempt $attempt, retrying in 2s..."
+              sleep 2
+            fi
+          done
           
           if [[ -n "$EXISTING_PRS" ]]; then
             echo "Found existing bump PRs - closing them to create fresh ones:"
@@ -75,6 +93,12 @@ jobs:
           fi
           
           echo "Cleanup complete - ready for fresh bump PRs"
+          echo "=== Post-cleanup verification ==="
+          echo "Open PRs after cleanup:"
+          gh pr list --state open --json number,headRefName,title | jq -r '.[] | select(.headRefName | startswith("bump-")) | "  - PR #\(.number): \(.headRefName)"' || echo "  No bump PRs found"
+          echo "Remote bump branches:"
+          git ls-remote --heads origin 'bump-*' | awk '{print "  - " $2}' | sed 's|refs/heads/||' || echo "  No bump branches found"
+          echo "========================="
 
       - name: Update Homebrew formulae
         uses: dawidd6/action-homebrew-bump-formula@v4
@@ -84,6 +108,8 @@ jobs:
           token: "${{ secrets.HOMEBREW_GITHUB_API_TOKEN }}"
         continue-on-error: true
         id: bump-formula
+        env:
+          START_TIME: ${{ steps.cleanup-branches.outputs.start_time }}
 
       - name: Summarize updates
         if: always()
