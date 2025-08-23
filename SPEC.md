@@ -182,6 +182,7 @@ class Boulder < Formula
   homepage "https://github.com/letsencrypt/boulder"
   url "https://github.com/letsencrypt/boulder.git"
   license "MPL-2.0"
+end
 ```
 
 **Version Pattern**: `v0.YYYYMMDD.N` (e.g., `v0.20250819.0`)  
@@ -197,6 +198,7 @@ class Ingest < Formula
   homepage "https://github.com/sammcj/ingest"
   url "https://github.com/sammcj/ingest.git"
   license "MIT"
+end
 ```
 
 **Version Pattern**: `vX.Y.Z` (semantic versioning)  

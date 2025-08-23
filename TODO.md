@@ -15,13 +15,14 @@ This document tracks improvements and enhancements for the sheurich/tap Homebrew
 ```ruby
 test do
   assert_match version.to_s, shell_output("#{bin}/boulder --version")
-  
+
   # Test that key binaries exist and are functional
-  %w[boulder-ca boulder-ra boulder-sa boulder-va boulder-wfe].each do |binary|
-    next unless (bin/binary).exist?
-    assert_match(/Usage|Commands|Options/i, shell_output("#{bin}/#{binary} --help", 1))
+    %w[boulder-ca boulder-ra boulder-sa boulder-va boulder-wfe].each do |binary|
+      next unless (bin/binary).exist?
+
+      assert_match(/Usage|Commands|Options/i, shell_output("#{bin}/#{binary} --help", 1))
+    end
   end
-end
 ```
 
 #### Service Definition
@@ -46,15 +47,17 @@ end
 - [ ] **Standard Go build**: Use `std_go_args` for consistency
 
 ```ruby
-def install
-  ldflags = %W[
-    -s -w
-    -X main.version=#{version}
-    -X main.commit=#{stable.specs[:revision][0, 8]}
-    -X main.buildTime=#{time.iso8601}
-  ]
-  
-  system "go", "build", *std_go_args(ldflags: ldflags), "."
+class Ingest < Formula
+  def install
+    ldflags = %W[
+      -s -w
+      -X main.version=#{version}
+      -X main.commit=#{stable.specs[:revision][0, 8]}
+      -X main.buildTime=#{time.iso8601}
+    ]
+
+    system "go", "build", *std_go_args(ldflags: ldflags), "."
+  end
 end
 ```
 
@@ -71,7 +74,7 @@ test do
   (testpath/"subdir/nested.md").write("# Nested content")
   output = shell_output("#{bin}/ingest --recursive --no-clipboard #{testpath}")
   assert_match "Nested content", output
-  
+
   # Test different output formats
   assert_match(/\[.*\]/, shell_output("#{bin}/ingest --format json --no-clipboard #{testpath}"))
 end
@@ -124,7 +127,7 @@ end
 
 ### Performance Optimizations
 - [x] **Add timing measurements**: Track install/test step performance (completed)
-- [x] **Suppress cosmetic warnings**: Clean up Git branch and Homebrew hints (completed) 
+- [x] **Suppress cosmetic warnings**: Clean up Git branch and Homebrew hints (completed)
 - [ ] **Build caching improvements**: Cache Go modules and dependencies between runs
 - [ ] **Parallel validation**: Run style/audit checks concurrently with installs
 - [ ] **Resource optimization**: Right-size runner instances for workload
@@ -137,7 +140,7 @@ end
 - [ ] **Regression testing**: Test against previous versions
 - [ ] **Load testing**: Validate under concurrent update scenarios
 
-### Monitoring and Observability  
+### Monitoring and Observability
 - [x] **Enhanced success logging**: Formula and version details in output (completed)
 - [ ] **Performance metrics**: Track build times, test duration, success rates
 - [ ] **Workflow health dashboard**: Visual monitoring of automation health
@@ -146,7 +149,7 @@ end
 
 ### Notifications and Alerts
 - [ ] **Slack notifications**: Set up failure alerts for maintainers
-- [ ] **Email notifications**: Alternative notification channel  
+- [ ] **Email notifications**: Alternative notification channel
 - [ ] **Success summaries**: Daily/weekly automation health reports
 - [ ] **Upstream monitoring**: Monitor upstream source health
 - [ ] **Dependency alerts**: Notify when dependencies have security updates
@@ -210,7 +213,7 @@ end
 1. **Week 1**: Enhanced testing for both formulae
 2. **Week 2**: Ingest build improvements with ldflags
 
-### Phase 2: User Experience (Week 3-4) 
+### Phase 2: User Experience (Week 3-4)
 3. **Week 3**: Shell completions and documentation
 4. **Week 4**: Bottle support and CI improvements
 
@@ -221,7 +224,7 @@ end
 8. **Week 8**: Multi-platform testing infrastructure
 
 ### Phase 4: Production Hardening (Month 3)
-9. **Week 9**: Retry mechanisms and error resilience 
+9. **Week 9**: Retry mechanisms and error resilience
 10. **Week 10**: Monitoring dashboard and alerting
 11. **Week 11**: Load testing and performance optimization
 12. **Week 12**: Security review and dependency scanning
@@ -233,7 +236,7 @@ Based on analysis of successful auto-merge workflow run (PR #63):
 ### Completed Optimizations
 - ✅ **Timing measurements**: Added performance tracking for install (57s) and test (2s) steps
 - ✅ **Clean output**: Suppressed Git branch warnings and Homebrew hints
-- ✅ **Enhanced logging**: Success messages now include formula name and version details  
+- ✅ **Enhanced logging**: Success messages now include formula name and version details
 - ✅ **CI optimization**: Disabled cleanup during testing for faster execution
 - ✅ **Git configuration**: Set 'main' as default branch to avoid warnings
 - ✅ **API consistency fixes**: Added retry logic and delays for GitHub API race conditions
@@ -249,7 +252,7 @@ Based on analysis of successful auto-merge workflow run (PR #63):
 
 ### Next Performance Targets
 - **Build time**: Target <45s for Boulder (current: 57s)
-- **Total validation**: Target <2.5min (current: ~3min) 
+- **Total validation**: Target <2.5min (current: ~3min)
 - **Cache hit rate**: Track and optimize dependency caching
 - **Parallel execution**: Run audit/style checks concurrently
 

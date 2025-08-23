@@ -1,0 +1,7 @@
+inherit_gem:
+  rubocop-homebrew: "config/default.yml"
+
+AllCops:
+  Exclude:
+    - SPEC.md
+    - TODO.md

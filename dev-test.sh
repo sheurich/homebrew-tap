@@ -61,8 +61,8 @@ then
   test_formula ingest
 
   printf "\n==> Running tap-wide checks\n"
-  echo "  -> Running brew style for entire tap..."
-  brew style .
+  echo "  -> Running brew style for formulae..."
+  brew style Formula
 
   echo "  -> Running brew audit for entire tap..."
   brew audit --online --strict --tap sheurich/tap
