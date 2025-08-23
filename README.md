@@ -24,6 +24,12 @@ additional formulas outside of Homebrew core. It currently contains two formulas
   `brew style`, `brew audit`, `brew install --build-from-source`, and `brew test`,
   then merges them automatically if successful.
 
+## Documentation
+
+- `DEVELOPMENT.md` explains environment setup and local testing.
+- `SPEC.md` describes the automation architecture.
+- `TODO.md` tracks planned improvements.
+
 ## Automation details
 
 ### Livecheck strategies

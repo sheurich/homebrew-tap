@@ -54,6 +54,6 @@ class Boulder < Formula
   end
 
   test do
-    assert_match "Versions:", shell_output("#{bin}/boulder --version")
+    assert_match version.to_s, shell_output("#{bin}/boulder --version")
   end
 end
