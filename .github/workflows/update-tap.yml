@@ -1,4 +1,7 @@
 ---
+# Automated formula update workflow
+# Runs twice daily to check for upstream releases and create bump PRs
+# Uses cleanup mechanism to ensure fresh PRs are created
 name: Update Tap
 
 on:
@@ -21,7 +24,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         with:
           persist-credentials: true
 
@@ -70,17 +73,23 @@ jobs:
           EXISTING_PRS: ${{ steps.get-existing-prs.outputs.existing_prs }}
           START_TIME: ${{ steps.cleanup-branches.outputs.start_time }}
         run: |
+          set -euo pipefail  # Enable strict error handling
+          
           echo "Processing existing bump PRs..."
           
-          if [[ -n "$EXISTING_PRS" ]]; then
+          if [[ -n "${EXISTING_PRS:-}" ]]; then
             echo "Found existing bump PRs - closing them to create fresh ones:"
             echo "$EXISTING_PRS"
             
-            # Close existing bump PRs
-            gh pr list --state open --json number,headRefName | jq -r '.[] | select(.headRefName | startswith("bump-")) | .number' | while read -r pr_num; do
-              echo "Closing PR #$pr_num"
-              gh pr close "$pr_num" --comment "Closing to create updated bump PR with latest version" || echo "Failed to close PR #$pr_num"
-            done
+            # Close existing bump PRs with better error handling
+            while IFS= read -r pr_num; do
+              if [[ -n "$pr_num" && "$pr_num" =~ ^[0-9]+$ ]]; then
+                echo "Closing PR #$pr_num"
+                if ! gh pr close "$pr_num" --comment "Closing to create updated bump PR with latest version"; then
+                  echo "⚠️  Warning: Failed to close PR #$pr_num, continuing..."
+                fi
+              fi
+            done < <(gh pr list --state open --json number,headRefName | jq -r '.[] | select(.headRefName | startswith("bump-")) | .number' 2>/dev/null || true)
             
             {
               echo "existing_prs<<EOF"
@@ -98,14 +107,18 @@ jobs:
           fi
           
           # Delete ALL bump- branches (both from closed PRs and any orphaned ones)
-          BUMP_BRANCHES=$(git ls-remote --heads origin 'bump-*' | awk '{print $2}' | sed 's|refs/heads/||' || true)
+          BUMP_BRANCHES=$(git ls-remote --heads origin 'bump-*' 2>/dev/null | awk '{print $2}' | sed 's|refs/heads/||' || true)
           
           if [[ -n "$BUMP_BRANCHES" ]]; then
             echo "Deleting all bump branches to ensure clean state:"
-            for branch in $BUMP_BRANCHES; do
-              echo "Deleting branch: $branch"
-              git push origin --delete "$branch" || echo "Failed to delete $branch (may not exist)"
-            done
+            while IFS= read -r branch; do
+              if [[ -n "$branch" ]]; then
+                echo "Deleting branch: $branch"
+                if ! git push origin --delete "$branch"; then
+                  echo "⚠️  Warning: Failed to delete $branch (may not exist), continuing..."
+                fi
+              fi
+            done <<< "$BUMP_BRANCHES"
           else
             echo "No bump branches found to delete"
           fi
@@ -113,9 +126,9 @@ jobs:
           echo "Cleanup complete - ready for fresh bump PRs"
           echo "=== Post-cleanup verification ==="
           echo "Open PRs after cleanup:"
-          gh pr list --state open --json number,headRefName,title | jq -r '.[] | select(.headRefName | startswith("bump-")) | "  - PR #\(.number): \(.headRefName)"' || echo "  No bump PRs found"
+          gh pr list --state open --json number,headRefName,title | jq -r '.[] | select(.headRefName | startswith("bump-")) | "  - PR #\(.number): \(.headRefName)"' 2>/dev/null || echo "  No bump PRs found"
           echo "Remote bump branches:"
-          git ls-remote --heads origin 'bump-*' | awk '{print "  - " $2}' | sed 's|refs/heads/||' || echo "  No bump branches found"
+          git ls-remote --heads origin 'bump-*' 2>/dev/null | awk '{print "  - " $2}' | sed 's|refs/heads/||' || echo "  No bump branches found"
           echo "========================="
 
       - name: Update Homebrew formulae
@@ -131,7 +144,7 @@ jobs:
 
       - name: Summarize updates
         if: always()
-        uses: actions/github-script@v7
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
         with:
           script: |
             const stepOutcome = '${{ steps.bump-formula.outcome }}';
