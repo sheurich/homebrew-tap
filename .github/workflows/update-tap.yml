@@ -50,11 +50,12 @@ jobs:
 
       - name: Get existing bump PRs with retry
         id: get-existing-prs
-        uses: nick-fields/retry@v3
+        uses: nick-fields/retry@7152eba30c6575329ac0576536151aca5a72780e # v3.0.0
         with:
-          timeout_minutes: 2
+          timeout_minutes: 3  # Increased timeout for API calls
           max_attempts: 3
-          retry_wait_seconds: 2
+          retry_wait_seconds: 5  # Increased wait time for API consistency
+          warning_on_retry: true
           command: |
             EXISTING_PRS=$(gh pr list --state open --json number,headRefName,title | jq -r '.[] | select(.headRefName | startswith("bump-")) | "\(.headRefName): PR #\(.number) - \(.title)"')
             echo "existing_prs=$EXISTING_PRS" >> "$GITHUB_OUTPUT"

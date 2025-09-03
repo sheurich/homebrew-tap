@@ -24,9 +24,9 @@ concurrency:
 jobs:
   validate-and-merge:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 30  # Reduced from 45 for faster feedback
 
-    # Only for bump-* branches - temporarily permissive for debugging
+    # Only for bump-* branches - security restriction
     if: startsWith(github.head_ref, 'bump-')
 
     steps:
@@ -45,6 +45,7 @@ jobs:
         uses: Homebrew/actions/setup-homebrew@master
         env:
           HOMEBREW_NO_ENV_HINTS: 1
+          HOMEBREW_NO_AUTO_UPDATE: 1  # Prevent automatic updates during CI
 
       - name: Cache Homebrew Bundler RubyGems
         id: cache
@@ -323,6 +324,25 @@ jobs:
             echo "  🗑️  Cleanup: Branch deleted"
             echo ""
             echo "🎉 Users can now install the updated formula!"
+            
+            # Create job summary for better visibility
+            cat >> "$GITHUB_STEP_SUMMARY" << EOF
+# ✅ Auto-merge Successful
+
+**Formula:** \`${FORMULA_NAME}\`  
+**Version:** \`${VERSION}\`  
+**PR:** #${PR_NUMBER}  
+**Branch:** \`${PR_BRANCH}\`  
+
+## Validation Results
+- ✅ Style check passed
+- ✅ Audit check passed  
+- ✅ Build from source successful
+- ✅ Tests passed
+- ✅ Auto-merge completed
+
+The updated formula is now available for users to install.
+EOF
           else
             MERGE_EXIT=$?
             echo "❌ Failed to merge PR #${PR_NUMBER} for branch: ${PR_BRANCH}"
