@@ -202,60 +202,59 @@ validate_embedded_shell() {
   if [[ "$YAML_ONLY" == "true" ]]; then
     return 0
   fi
-  
+
   if ! command -v shellcheck >/dev/null 2>&1; then
     log_warning "shellcheck not available, skipping shell script validation"
     return 0
   fi
-  
+
   log_info "Extracting and validating embedded shell scripts..."
-  
+
   local workflow_files
   workflow_files=$(find .github/workflows -name "*.yml" -o -name "*.yaml" 2>/dev/null || echo "")
-  
+
   if [[ -z "$workflow_files" ]]; then
     log_warning "No workflow files found for shell script extraction"
     return 0
   fi
-  
-  local temp_dir
+
   temp_dir=$(mktemp -d -t workflow-shell-check-XXXXXX)
   cleanup_temp_dir() { rm -rf "$temp_dir"; }
   trap cleanup_temp_dir EXIT
-  
+
   local script_count=0
   local failed_scripts=0
-  
+
   # Extract shell scripts from workflow files
   for workflow_file in $workflow_files; do
     verbose_log "Extracting shell scripts from $workflow_file"
-    
+
     # Use a simple but effective approach to extract run: | blocks
     # This is basic but works for most common cases
-    awk '
+    awk -v temp_dir="$temp_dir" -v workflow_file="$workflow_file" '''
       /run: [|>]/ { in_script=1; script_num++; next }
       in_script && /^[[:space:]]*$/ { next }
       in_script && /^[[:space:]]*- / { in_script=0; next }
       in_script && /^[[:space:]]*[a-zA-Z_-]+:/ { in_script=0; print line > script_file; next }
-      in_script { 
+      in_script {
         if (script_file == "") {
-          script_file = "'$temp_dir'/script_" script_num ".sh"
+          script_file = temp_dir "/script_" script_num ".sh"
           print "#!/bin/bash" > script_file
-          print "# Extracted from '$workflow_file'" > script_file
+          print "# Extracted from " workflow_file > script_file
           print "" > script_file
         }
         print $0 > script_file
       }
       !in_script { script_file = "" }
-    ' "$workflow_file"
+    ''' "$workflow_file"
   done
-  
+
   # Check extracted scripts
   for script_file in "$temp_dir"/*.sh; do
     if [[ -f "$script_file" ]]; then
       ((script_count++))
       verbose_log "Checking $(basename "$script_file")"
-      
+
       if shellcheck "$script_file"; then
         verbose_log "✅ $(basename "$script_file") passed shellcheck"
       else
@@ -264,12 +263,12 @@ validate_embedded_shell() {
       fi
     fi
   done
-  
+
   if [[ $script_count -eq 0 ]]; then
     log_info "No shell scripts found in workflows to validate"
     return 0
   fi
-  
+
   if [[ $failed_scripts -eq 0 ]]; then
     log_success "All $script_count embedded shell scripts passed validation"
     return 0
