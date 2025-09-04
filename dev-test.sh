@@ -54,6 +54,7 @@ This script performs the following checks:
 - Livecheck for upstream updates
 - Formula information display
 - Optional isolated build testing
+- GitHub Actions workflow validation
 
 EOF
 }
@@ -170,7 +171,7 @@ isolated_build_test() {
   tmpbrew="$(mktemp -d -t homebrew-test-XXXXXX)"
   
   # Ensure cleanup on exit
-  trap "rm -rf '$tmpbrew'" EXIT
+  trap 'rm -rf "$tmpbrew"' EXIT
   
   log_info "Using temporary Homebrew prefix: ${tmpbrew}"
 
@@ -259,6 +260,20 @@ main() {
     else
       log_warning "Tap-wide audit failed (may be due to network issues)"
     fi
+
+    # Workflow linting
+    printf "\n==> Running workflow validation\n"
+    if [[ -x "./lint-workflows.sh" ]]; then
+      log_info "Running workflow linting..."
+      if ./lint-workflows.sh --yaml-only; then
+        log_success "Workflow YAML validation passed"
+      else
+        log_warning "Workflow validation failed"
+        failed_formulas+=("workflow-lint")
+      fi
+    else
+      log_warning "Workflow linting script not found or not executable"
+    fi
     
     # Summary
     if [[ ${#failed_formulas[@]} -eq 0 ]]; then
@@ -294,6 +309,7 @@ main() {
   echo "  - Info: brew info sheurich/tap/<formula>"
   echo "  - Test all: ./dev-test.sh"
   echo "  - Test specific: ./dev-test.sh <formula>"
+  echo "  - Workflow lint: ./lint-workflows.sh"
   echo "  - Help: ./dev-test.sh --help"
 }
 
