@@ -11,6 +11,7 @@ name: Validate and Auto-Merge Bump PR
 'on':
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
+    branches: [main]  # Only run on PRs targeting main branch
 
 permissions:
   contents: write        # Required for checkout and potential branch operations
@@ -26,8 +27,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30  # Reduced from 45 for faster feedback
 
-    # Only for bump-* branches - security restriction
-    if: startsWith(github.head_ref, 'bump-')
+    # Only for bump-* branches and pull_request events - security restriction
+    if: startsWith(github.head_ref, 'bump-') && github.event_name == 'pull_request'
 
     steps:
       - name: Checkout PR branch
