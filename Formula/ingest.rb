@@ -19,13 +19,18 @@ class Ingest < Formula
   depends_on "go" => :build
 
   def install
+    # Determine version and build information based on build type
     if head?
+      # For HEAD builds: use "HEAD" as version tag and current commit hash
       version_tag = "HEAD"
       build_time = "+#{Utils.safe_popen_read("git", "rev-parse", "--short=8", "HEAD").strip}"
     else
+      # For stable builds: use the actual version tag and pinned revision hash
       version_tag = stable.specs[:tag]
       build_time = "+#{stable.specs[:revision][0, 8]}"
     end
+    
+    # Build using upstream's Makefile with expected variables
     system "make", "VERSION=#{version_tag}", "BUILD_TIME=#{build_time}"
     bin.install "ingest"
   end

@@ -19,22 +19,24 @@ class Boulder < Formula
   depends_on "go" => :build
 
   def install
-    # Derive Go TARGET platform from 'go env' (Homebrew does not cross-compile here).
+    # Derive Go target platform from current build environment
+    # Homebrew handles cross-compilation separately, so we use the current platform
     build_os = Utils.safe_popen_read("go", "env", "GOOS").strip
     build_arch = Utils.safe_popen_read("go", "env", "GOARCH").strip
     build_host = "#{build_os}/#{build_arch}"
 
     if build.head?
-      # Use short commit for BUILD_ID and commit timestamp (RFC 3339, UTC) for BUILD_TIME when building from HEAD
+      # For HEAD builds: use short commit for BUILD_ID and actual commit timestamp
       build_id = Utils.git_short_head(length: 8) || "head"
       commit_ref = "HEAD"
     else
-      # Use the pinned revision for reproducible BUILD_TIME on stable builds
+      # For stable builds: use tag without 'v' prefix for BUILD_ID and pinned revision
       build_id = stable.specs[:tag].delete_prefix("v")
       commit_ref = stable.specs[:revision]
     end
 
-    # Use Homebrew's Utils::Git and safe_popen_read to get the commit timestamp without raw shell-outs.
+    # Extract commit timestamp using Git, ensuring we get the actual commit time
+    # This provides reproducible builds for stable releases
     raw_time =
       Utils.safe_popen_read(
         Utils::Git.git,
@@ -46,9 +48,11 @@ class Boulder < Formula
       ).to_s.strip
     odie "Failed to determine commit time for #{commit_ref}" if raw_time.empty?
 
-    # Normalize to UTC Zulu: parse ISO 8601 (with tz), convert to UTC, and emit ISO 8601 with trailing 'Z'.
+    # Normalize timestamp to UTC ISO 8601 format for consistency
+    # Parse the timestamp (which may include timezone) and convert to UTC
     build_time = Time.iso8601(raw_time).utc.iso8601
 
+    # Build with Boulder's expected variables
     system "make", "BUILD_ID=#{build_id}", "BUILD_TIME=#{build_time}", "BUILD_HOST=#{build_host}"
     bin.install Dir["bin/*"]
   end

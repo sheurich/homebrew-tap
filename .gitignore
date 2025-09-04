@@ -1,0 +1,15 @@
+# Development tools (not needed in repo)
+actionlint
+actionlint*
+
+# Temporary files
+*.tmp
+*.temp
+.DS_Store
+
+# Build artifacts
+*.o
+*.so
+*.dylib
+dist/
+build/
