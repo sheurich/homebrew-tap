@@ -57,7 +57,9 @@ jobs:
           retry_wait_seconds: 5  # Increased wait time for API consistency
           warning_on_retry: true
           command: |
-            EXISTING_PRS=$(gh pr list --state open --json number,headRefName,title | jq -r '.[] | select(.headRefName | startswith("bump-")) | "\(.headRefName): PR #\(.number) - \(.title)"')
+            EXISTING_PRS=$(gh pr list --state open --json number,headRefName,title | \
+              jq -r '.[] | select(.headRefName | startswith("bump-")) | \
+                "\(.headRefName): PR #\(.number) - \(.title)"')
             echo "existing_prs=$EXISTING_PRS" >> "$GITHUB_OUTPUT"
             if [[ -n "$EXISTING_PRS" ]]; then
               echo "Found existing bump PRs"
@@ -75,23 +77,26 @@ jobs:
           START_TIME: ${{ steps.cleanup-branches.outputs.start_time }}
         run: |
           set -euo pipefail  # Enable strict error handling
-          
+
           echo "Processing existing bump PRs..."
-          
+
           if [[ -n "${EXISTING_PRS:-}" ]]; then
             echo "Found existing bump PRs - closing them to create fresh ones:"
             echo "$EXISTING_PRS"
-            
+
             # Close existing bump PRs with better error handling
             while IFS= read -r pr_num; do
               if [[ -n "$pr_num" && "$pr_num" =~ ^[0-9]+$ ]]; then
                 echo "Closing PR #$pr_num"
-                if ! gh pr close "$pr_num" --comment "Closing to create updated bump PR with latest version"; then
+                if ! gh pr close "$pr_num" \
+                  --comment "Closing to create updated bump PR with latest version"; then
                   echo "⚠️  Warning: Failed to close PR #$pr_num, continuing..."
                 fi
               fi
-            done < <(gh pr list --state open --json number,headRefName | jq -r '.[] | select(.headRefName | startswith("bump-")) | .number' 2>/dev/null || true)
-            
+            done < <(gh pr list --state open --json number,headRefName | \
+              jq -r '.[] | select(.headRefName | startswith("bump-")) | .number' \
+              2>/dev/null || true)
+
             {
               echo "existing_prs<<EOF"
               echo "$EXISTING_PRS"
@@ -106,10 +111,11 @@ jobs:
               echo "start_time=$START_TIME"
             } >> "$GITHUB_OUTPUT"
           fi
-          
+
           # Delete ALL bump- branches (both from closed PRs and any orphaned ones)
-          BUMP_BRANCHES=$(git ls-remote --heads origin 'bump-*' 2>/dev/null | awk '{print $2}' | sed 's|refs/heads/||' || true)
-          
+          BUMP_BRANCHES=$(git ls-remote --heads origin 'bump-*' 2>/dev/null | \
+            awk '{print $2}' | sed 's|refs/heads/||' || true)
+
           if [[ -n "$BUMP_BRANCHES" ]]; then
             echo "Deleting all bump branches to ensure clean state:"
             while IFS= read -r branch; do
@@ -123,13 +129,18 @@ jobs:
           else
             echo "No bump branches found to delete"
           fi
-          
+
           echo "Cleanup complete - ready for fresh bump PRs"
           echo "=== Post-cleanup verification ==="
           echo "Open PRs after cleanup:"
-          gh pr list --state open --json number,headRefName,title | jq -r '.[] | select(.headRefName | startswith("bump-")) | "  - PR #\(.number): \(.headRefName)"' 2>/dev/null || echo "  No bump PRs found"
+          gh pr list --state open --json number,headRefName,title | \
+            jq -r '.[] | select(.headRefName | startswith("bump-")) | \
+              "  - PR #\(.number): \(.headRefName)"' \
+            2>/dev/null || echo "  No bump PRs found"
           echo "Remote bump branches:"
-          git ls-remote --heads origin 'bump-*' 2>/dev/null | awk '{print "  - " $2}' | sed 's|refs/heads/||' || echo "  No bump branches found"
+          git ls-remote --heads origin 'bump-*' 2>/dev/null | \
+            awk '{print "  - " $2}' | sed 's|refs/heads/||' || \
+            echo "  No bump branches found"
           echo "========================="
 
       - name: Update Homebrew formulae
@@ -149,11 +160,12 @@ jobs:
         with:
           script: |
             const stepOutcome = '${{ steps.bump-formula.outcome }}';
-            const hadExistingPrs = '${{ steps.process-cleanup.outputs.had_existing_prs }}' === 'true';
+            const hadExistingPrs = \
+              '${{ steps.process-cleanup.outputs.had_existing_prs }}' === 'true';
             const existingPrs = `${{ steps.process-cleanup.outputs.existing_prs }}`;
-            
+
             core.summary.addHeading('Update Tap Summary');
-            
+
             if (hadExistingPrs) {
               core.summary.addRaw('🧺 **Cleaned up existing bump PRs:**');
               core.summary.addRaw('\n```');
@@ -161,7 +173,7 @@ jobs:
               core.summary.addRaw('\n```');
               core.summary.addRaw('\n_These were closed and replaced with fresh bump PRs._\n');
             }
-            
+
             if (stepOutcome === 'success') {
               core.summary.addRaw('✅ **Formula update completed successfully**');
               if (hadExistingPrs) {
@@ -179,11 +191,12 @@ jobs:
               core.summary.addRaw('\n- GitHub API rate limits');
               core.summary.addRaw('\n- Upstream source changes requiring manual intervention');
               if (hadExistingPrs) {
-                core.summary.addRaw('\n\n_Note: Existing bump PRs were closed before this attempt._');
+                core.summary.addRaw('\n\n_Note: Existing bump PRs were closed ' +
+                  'before this attempt._');
               }
             } else {
               core.summary.addRaw('ℹ️ Formula update was skipped or cancelled.');
             }
-            
+
             await core.summary.write();
 
