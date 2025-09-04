@@ -62,13 +62,15 @@ jobs:
       - name: Summary
         if: always()
         run: |
-          echo "## Workflow Linting Results" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "✅ **YAML Syntax**: Validated with yamllint" >> "$GITHUB_STEP_SUMMARY"
-          echo "✅ **GitHub Actions**: Validated with actionlint" >> "$GITHUB_STEP_SUMMARY"
-          echo "✅ **Shell Scripts**: Validated with shellcheck" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "All workflow files have been validated for:" >> "$GITHUB_STEP_SUMMARY"
-          echo "- YAML syntax and formatting" >> "$GITHUB_STEP_SUMMARY"
-          echo "- GitHub Actions best practices" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Shell script quality and security" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "## Workflow Linting Results" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "✅ **YAML Syntax**: Validated with yamllint" >> "$GITHUB_STEP_SUMMARY"
+            echo "✅ **GitHub Actions**: Validated with actionlint" >> "$GITHUB_STEP_SUMMARY"
+            echo "✅ **Shell Scripts**: Validated with shellcheck" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "All workflow files have been validated for:" >> "$GITHUB_STEP_SUMMARY"
+            echo "- YAML syntax and formatting" >> "$GITHUB_STEP_SUMMARY"
+            echo "- GitHub Actions best practices" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Shell script quality and security" >> "$GITHUB_STEP_SUMMARY"
+          }
