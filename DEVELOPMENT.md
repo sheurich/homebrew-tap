@@ -71,6 +71,11 @@ brew info sheurich/tap/ingest
 actionlint .github/workflows/update-tap.yml
 actionlint .github/workflows/auto-merge-bump-pr.yml
 actionlint  # validate all workflows
+
+# Workflow linting (YAML + shell scripts + security)
+./lint-workflows.sh
+./lint-workflows.sh --verbose
+./lint-workflows.sh --yaml-only
 ```
 
 ### Isolated Build Testing
@@ -99,6 +104,34 @@ rm -rf "$TMPBREW"
 - **RuboCop**: Style checker (installed via `brew style`)
 - **ActionLint**: GitHub Actions workflow linter (`brew install actionlint`)
 - **ShellCheck**: Shell script analyzer (dependency of actionlint)
+- **yamllint**: YAML syntax and style checker (`pip install yamllint`)
+
+### Workflow Linting and Testing
+
+This repository includes comprehensive workflow validation:
+
+- **`lint-workflows.sh`**: Integrated workflow linting script that validates:
+  - YAML syntax and formatting with yamllint
+  - GitHub Actions best practices with actionlint
+  - Embedded shell scripts with shellcheck
+  - Security best practices and recommendations
+
+- **Automated CI**: The `workflow-lint.yml` workflow automatically:
+  - Runs on all workflow file changes
+  - Validates YAML syntax, GitHub Actions, and shell scripts
+  - Provides detailed feedback on any issues
+
+Run workflow validation:
+```bash
+# Full validation (YAML, actionlint, shellcheck)
+./lint-workflows.sh
+
+# YAML-only validation
+./lint-workflows.sh --yaml-only
+
+# Verbose output with detailed feedback
+./lint-workflows.sh --verbose
+```
 
 ### Git Hooks
 
@@ -119,6 +152,11 @@ Automated workflows handle:
 2. **Auto-merge Bump PR** (`auto-merge-bump-pr.yml`):
    - Validates bump PRs with style, audit, build, and test checks
    - Auto-merges successful PRs
+
+3. **Workflow Linting** (`workflow-lint.yml`):
+   - Validates all workflow files for syntax and best practices
+   - Runs on workflow file changes and manual triggers
+   - Uses yamllint, actionlint, and shellcheck for comprehensive validation
 
 ## Formula Development Guidelines
 

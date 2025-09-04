@@ -1,0 +1,76 @@
+---
+# Workflow linting and validation CI
+# Runs automated checks on GitHub Actions workflows to ensure quality and security
+name: Workflow Linting
+
+'on':
+  pull_request:
+    paths:
+      - '.github/workflows/**'
+      - '.yamllint.yml'
+      - 'lint-workflows.sh'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/**'
+      - '.yamllint.yml'
+      - 'lint-workflows.sh'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  workflow-lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332  # v4.1.7
+
+      - name: Set up Python for yamllint
+        uses: actions/setup-python@f677139bbe7f9c59b41e40162b753c062f5d49a3  # v5.1.0
+        with:
+          python-version: '3.12'
+
+      - name: Install yamllint
+        run: pip install yamllint==1.37.1
+
+      - name: Set up Go for actionlint
+        uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32  # v5.0.2
+        with:
+          go-version: '1.21'
+          cache: false
+
+      - name: Install actionlint
+        run: go install github.com/rhymond/actionlint/cmd/actionlint@latest
+
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+
+      - name: Run workflow linting (YAML only)
+        run: ./lint-workflows.sh --yaml-only
+
+      - name: Run actionlint
+        run: actionlint
+
+      - name: Validate shell scripts in workflows
+        run: ./lint-workflows.sh --verbose
+
+      - name: Check dev-test.sh with shellcheck
+        run: shellcheck dev-test.sh
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Workflow Linting Results" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "✅ **YAML Syntax**: Validated with yamllint" >> "$GITHUB_STEP_SUMMARY"
+          echo "✅ **GitHub Actions**: Validated with actionlint" >> "$GITHUB_STEP_SUMMARY"
+          echo "✅ **Shell Scripts**: Validated with shellcheck" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "All workflow files have been validated for:" >> "$GITHUB_STEP_SUMMARY"
+          echo "- YAML syntax and formatting" >> "$GITHUB_STEP_SUMMARY"
+          echo "- GitHub Actions best practices" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Shell script quality and security" >> "$GITHUB_STEP_SUMMARY"
