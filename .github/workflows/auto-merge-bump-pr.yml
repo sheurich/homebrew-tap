@@ -297,20 +297,44 @@ jobs:
           echo "  👤 Author: ${PR_AUTHOR}"
           echo "  📦 Formula: ${FORMULA_NAME}"
 
-          # Check PR status before attempting merge
-          echo "🔍 Checking PR status..."
-          PR_STATE=$(gh pr view "$PR_NUMBER" --json state,mergeable | \
-                     jq -r '.state + ":" + (.mergeable | tostring)')
-          echo "  📊 PR State: $PR_STATE"
+          # Check PR status before attempting merge with retries for UNKNOWN state
+          echo "🔍 Checking PR mergeable status..."
+          MAX_RETRIES=6
+          RETRY_DELAY=30
+          ATTEMPT=1
 
-          if [[ "$PR_STATE" != "OPEN:true" ]]; then
-            echo "❌ PR is not in a mergeable state: $PR_STATE"
-            echo "Possible reasons:"
-            echo "  - PR may be closed or already merged"
-            echo "  - There may be merge conflicts"
-            echo "  - Required status checks may be pending"
-            exit 1
-          fi
+          while [[ $ATTEMPT -le $MAX_RETRIES ]]; do
+            PR_STATE=$(gh pr view "$PR_NUMBER" --json state,mergeable | \
+                       jq -r '.state + ":" + (.mergeable | tostring)')
+            echo "  📊 PR State (attempt $ATTEMPT/$MAX_RETRIES): $PR_STATE"
+
+            case "$PR_STATE" in
+              "OPEN:true")
+                echo "✅ PR is mergeable"
+                break
+                ;;
+              "OPEN:UNKNOWN")
+                if [[ $ATTEMPT -lt $MAX_RETRIES ]]; then
+                  echo "⏳ Mergeable status is UNKNOWN (GitHub still computing), waiting ${RETRY_DELAY}s..."
+                  sleep $RETRY_DELAY
+                else
+                  echo "❌ PR mergeable status remains UNKNOWN after $MAX_RETRIES attempts"
+                  echo "This usually means required status checks are still pending or failing"
+                  exit 1
+                fi
+                ;;
+              *)
+                echo "❌ PR is not in a mergeable state: $PR_STATE"
+                echo "Possible reasons:"
+                echo "  - PR may be closed or already merged"
+                echo "  - There may be merge conflicts"
+                echo "  - Required status checks may be failing"
+                exit 1
+                ;;
+            esac
+
+            ((ATTEMPT++))
+          done
 
           # Attempt merge with proper error handling
           echo "🔄 Attempting squash merge..."
