@@ -299,8 +299,8 @@ jobs:
 
           # Check PR status before attempting merge
           echo "🔍 Checking PR status..."
-          PR_STATE=$(gh pr view "$PR_NUMBER" --json state,mergeable \
-                     --jq '.state + ":" + (.mergeable | tostring)')
+          PR_STATE=$(gh pr view "$PR_NUMBER" --json state,mergeable | \
+                     jq -r '.state + ":" + (.mergeable | tostring)')
           echo "  📊 PR State: $PR_STATE"
 
           if [[ "$PR_STATE" != "OPEN:true" ]]; then
