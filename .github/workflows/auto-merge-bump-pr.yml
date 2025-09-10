@@ -32,7 +32,7 @@ jobs:
 
     steps:
       - name: Checkout PR branch
-        uses: actions/checkout@v5
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
         with:
           ref: ${{ github.event.pull_request.head.ref }}
 
@@ -43,14 +43,14 @@ jobs:
 
       - name: Set up Homebrew
         id: set-up-homebrew
-        uses: Homebrew/actions/setup-homebrew@master
+        uses: Homebrew/actions/setup-homebrew@068e33fe73df9603ed4bd26ce6f830ec8545c1e8
         env:
           HOMEBREW_NO_ENV_HINTS: 1
           HOMEBREW_NO_AUTO_UPDATE: 1  # Prevent automatic updates during CI
 
       - name: Cache Homebrew Bundler RubyGems
         id: cache
-        uses: actions/cache@v4
+        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809
         with:
           path: ${{ steps.set-up-homebrew.outputs.gems-path }}
           key: ${{ runner.os }}-rubygems-${{ steps.set-up-homebrew.outputs.gems-hash }}
@@ -61,7 +61,7 @@ jobs:
         run: brew install-bundler-gems
 
       - name: Cache Go modules
-        uses: actions/cache@v4
+        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809
         with:
           path: |
             ~/.cache/go-build
@@ -391,7 +391,7 @@ jobs:
 
       - name: Notify on failure
         if: failure()
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b
         with:
           script: |
             const prNumber = context.payload.pull_request.number;

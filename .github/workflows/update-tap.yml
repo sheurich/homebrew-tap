@@ -144,7 +144,7 @@ jobs:
           echo "========================="
 
       - name: Update Homebrew formulae
-        uses: dawidd6/action-homebrew-bump-formula@v4
+        uses: dawidd6/action-homebrew-bump-formula@8d494330bce4434918392df134ad3db1167904db
         with:
           livecheck: true
           tap: sheurich/tap
