@@ -318,8 +318,8 @@ jobs:
                   echo "⏳ Mergeable status is UNKNOWN (GitHub still computing), waiting ${RETRY_DELAY}s..."
                   sleep $RETRY_DELAY
                 else
-                  echo "❌ PR mergeable status remains UNKNOWN after $MAX_RETRIES attempts"
-                  echo "This usually means required status checks are still pending or failing"
+                  echo "❌ PR mergeable status UNKNOWN after $MAX_RETRIES attempts"
+                  echo "Required status checks may still be pending or failing"
                   exit 1
                 fi
                 ;;
