@@ -315,7 +315,7 @@ jobs:
                 ;;
               "OPEN:UNKNOWN")
                 if [[ $ATTEMPT -lt $MAX_RETRIES ]]; then
-                  echo "⏳ Mergeable status is UNKNOWN (GitHub still computing), waiting ${RETRY_DELAY}s..."
+                  echo "⏳ Mergeable status is UNKNOWN, waiting ${RETRY_DELAY}s..."
                   sleep $RETRY_DELAY
                 else
                   echo "❌ PR mergeable status UNKNOWN after $MAX_RETRIES attempts"
