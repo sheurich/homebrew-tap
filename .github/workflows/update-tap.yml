@@ -160,8 +160,7 @@ jobs:
         with:
           script: |
             const stepOutcome = '${{ steps.bump-formula.outcome }}';
-            const hadExistingPrs = \
-              '${{ steps.process-cleanup.outputs.had_existing_prs }}' === 'true';
+            const hadExistingPrs = '${{ steps.process-cleanup.outputs.had_existing_prs }}' === 'true';
             const existingPrs = `${{ steps.process-cleanup.outputs.existing_prs }}`;
 
             core.summary.addHeading('Update Tap Summary');
@@ -199,4 +198,3 @@ jobs:
             }
 
             await core.summary.write();
-
