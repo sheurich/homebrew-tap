@@ -319,7 +319,7 @@ jobs:
                   sleep $RETRY_DELAY
                 else
                   echo "❌ PR mergeable status UNKNOWN after $MAX_RETRIES attempts"
-                  echo "Required status checks may still be pending or failing"
+                  echo "Required status checks may be pending"
                   exit 1
                 fi
                 ;;
