@@ -91,7 +91,8 @@ jobs:
         if: steps.formulae.outputs.has_formula == 'true'
         env:
           GH_TOKEN: ${{ secrets.HOMEBREW_GITHUB_API_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           set -euo pipefail
 
-          gh pr merge "${{ github.event.pull_request.number }}" --squash --delete-branch
+          gh pr merge "$PR_NUMBER" --squash --delete-branch
