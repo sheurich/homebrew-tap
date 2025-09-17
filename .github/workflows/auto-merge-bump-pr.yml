@@ -32,7 +32,8 @@ jobs:
         uses: Homebrew/actions/setup-homebrew@main
 
       - name: Setup tap
-        id: formulae
+        env:
+          HOMEBREW_NO_INSTALL_FROM_API: 1
         run: |
           set -euo pipefail
 
