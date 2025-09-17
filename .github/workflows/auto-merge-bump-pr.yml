@@ -37,7 +37,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          brew tap "${TAP_NAME}" "file:///$PWD"
+          brew tap "${TAP_NAME}" "$PWD"
           brew tap
 
       - name: Run brew style and audit
