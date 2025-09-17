@@ -1,417 +1,97 @@
-# .github/workflows/auto-merge-bump-pr.yml
-# Automatically validate and merge bump PRs with comprehensive checks
-# - Validates only bump-* branches for security
-# - Runs style, audit, build-from-source, and test validation
-# - Includes performance tracking and error handling
-# - Auto-merges only if all checks pass
+name: Test and merge bump PRs
 
----
-name: Validate and Auto-Merge Bump PR
-
-'on':
+on:
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
-    branches: [main]  # Only run on PRs targeting main branch
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+    branches:
+      - main
 
 permissions:
-  contents: write        # Required for checkout and potential branch operations
-  pull-requests: write   # Required for PR comments and merging
-  actions: read         # Required for workflow status checks
-
-concurrency:
-  group: auto-merge-bump-pr-${{ github.event.pull_request.number || github.run_id }}
-  cancel-in-progress: true
+  contents: write
+  pull-requests: write
 
 jobs:
-  validate-and-merge:
+  build:
+    if: startsWith(github.head_ref, 'bump-')
     runs-on: ubuntu-latest
-    timeout-minutes: 30  # Reduced from 45 for faster feedback
-
-    # Only for bump-* branches and pull_request events - security restriction
-    if: startsWith(github.head_ref, 'bump-') && github.event_name == 'pull_request'
-
+    env:
+      HOMEBREW_NO_AUTO_UPDATE: 1
+      HOMEBREW_NO_ANALYTICS: 1
     steps:
-      - name: Checkout PR branch
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.ref }}
-
-      - name: Configure Git
-        run: |
-          git config --global init.defaultBranch main
-          git config --global advice.defaultBranchName false
+          fetch-depth: 0
 
       - name: Set up Homebrew
-        id: set-up-homebrew
-        uses: Homebrew/actions/setup-homebrew@068e33fe73df9603ed4bd26ce6f830ec8545c1e8
-        env:
-          HOMEBREW_NO_ENV_HINTS: 1
-          HOMEBREW_NO_AUTO_UPDATE: 1  # Prevent automatic updates during CI
+        uses: Homebrew/actions/setup-homebrew@master
 
-      - name: Cache Homebrew Bundler RubyGems
-        id: cache
-        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809
-        with:
-          path: ${{ steps.set-up-homebrew.outputs.gems-path }}
-          key: ${{ runner.os }}-rubygems-${{ steps.set-up-homebrew.outputs.gems-hash }}
-          restore-keys: ${{ runner.os }}-rubygems-
-
-      - name: Install Homebrew Bundler RubyGems (if cache miss)
-        if: steps.cache.outputs.cache-hit != 'true'
-        run: brew install-bundler-gems
-
-      - name: Cache Go modules
-        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-
-      - name: Debug PR information
-        env:
-          GITHUB_ACTOR: ${{ github.actor }}
-          PR_USER: ${{ github.event.pull_request.user.login }}
-          HEAD_REF: ${{ github.head_ref }}
-          PR_TITLE: ${{ github.event.pull_request.title }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
+      - name: Determine changed formulae
+        id: formulae
         run: |
-          echo "=== PR Debug Information ==="
-          echo "Actor: $GITHUB_ACTOR"
-          echo "PR User: $PR_USER"
-          echo "Head Ref: $HEAD_REF"
-          echo "PR Title: $PR_TITLE"
-          echo "PR Number: $PR_NUMBER"
-          echo "=== End Debug ==="
+          set -euo pipefail
 
-      - name: Validate PR and determine formula name
-        id: formula_info
-        env:
-          PR_HEAD_REF: ${{ github.head_ref }}
-          PR_TITLE: ${{ github.event.pull_request.title }}
-        run: |
-          set -euo pipefail  # Enable strict error handling
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
 
-          # Validate input variables
-          if [[ -z "${PR_HEAD_REF:-}" ]]; then
-            echo "❌ Error: PR_HEAD_REF is empty or not set"
-            exit 1
+          FORMULAE=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- 'Formula/*.rb' \
+            | sed -e 's#^Formula/##' -e 's#\.rb$##' \
+            | sort -u)
+
+          if [[ -z "$FORMULAE" ]]; then
+            echo "No formula changes detected in this PR."
+            echo "has_formula=false" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
 
-          if [[ -z "${PR_TITLE:-}" ]]; then
-            echo "❌ Error: PR_TITLE is empty or not set"
-            exit 1
-          fi
-
-          # Derive formula name safely, quoting all variables to avoid word splitting/globbing
-          FORMULA_SIMPLE_NAME="$(printf '%s' "$PR_HEAD_REF" | sed -E 's/^bump-([^-]+)-.*/\1/')"
-          TAP_NAME="sheurich/tap"
-          FORMULA_FULL_NAME="$TAP_NAME/$FORMULA_SIMPLE_NAME"
-
-          # Validate formula name extraction
-          if [[ -z "$FORMULA_SIMPLE_NAME" || "$FORMULA_SIMPLE_NAME" == "$PR_HEAD_REF" ]]; then
-            echo "❌ Failed to extract formula name from branch: $PR_HEAD_REF"
-            echo "Expected branch format: bump-<formula>-<version>"
-            exit 1
-          fi
-
-          # Validate formula name contains only allowed characters
-          if [[ ! "$FORMULA_SIMPLE_NAME" =~ ^[a-zA-Z0-9][a-zA-Z0-9_-]*$ ]]; then
-            echo "❌ Invalid formula name: $FORMULA_SIMPLE_NAME"
-            echo "Formula names must start with alphanumeric and contain only" \
-                 "alphanumeric, underscore, and hyphen"
-            exit 1
-          fi
-
-          # Check if formula file exists
-          if [[ ! -f "Formula/$FORMULA_SIMPLE_NAME.rb" ]]; then
-            echo "❌ Formula file not found: Formula/$FORMULA_SIMPLE_NAME.rb"
-            echo "Available formulas:"
-            ls -1 Formula/*.rb 2>/dev/null || echo "  No formula files found"
-            exit 1
-          fi
-
-          echo "✅ Validated PR for formula: $FORMULA_SIMPLE_NAME"
-          echo "  Branch: $PR_HEAD_REF"
-          echo "  Title: $PR_TITLE"
-          echo "  Formula file: Formula/$FORMULA_SIMPLE_NAME.rb"
-
-          # Use proper output format for GitHub Actions
           {
-            printf 'formula_simple_name=%s\n' "$FORMULA_SIMPLE_NAME"
-            printf 'formula_full_name=%s\n' "$FORMULA_FULL_NAME"
-            printf 'tap_name=%s\n' "$TAP_NAME"
+            echo "formulae<<EOF"
+            echo "$FORMULAE"
+            echo "EOF"
+            echo "has_formula=true"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Run brew style and audit (parallel)
+      - name: Run brew style and audit
+        if: steps.formulae.outputs.has_formula == 'true'
         env:
-          FORMULA_FULL_NAME: ${{ steps.formula_info.outputs.formula_full_name }}
+          FORMULAE: ${{ steps.formulae.outputs.formulae }}
         run: |
           set -euo pipefail
 
-          # Validate required environment variables
-          if [[ -z "${FORMULA_FULL_NAME:-}" ]]; then
-            echo "❌ Error: FORMULA_FULL_NAME is not set"
-            exit 1
-          fi
+          while IFS= read -r formula; do
+            file="Formula/${formula}.rb"
+            echo "Running style and audit checks for ${file}"
+            brew style "$file"
+            brew audit --strict --online "$file"
+          done <<<"$FORMULAE"
 
-          echo "Running style and audit checks in parallel for: $FORMULA_FULL_NAME"
-
-          # Run style check in background
-          {
-            echo "🎨 Running brew style..."
-            if brew style "$FORMULA_FULL_NAME"; then
-              echo "✅ Style check passed" > /tmp/style_result
-            else
-              echo "❌ Style check failed" > /tmp/style_result
-              exit 1
-            fi
-          } &
-          STYLE_PID=$!
-
-          # Run audit check in background
-          {
-            echo "🔍 Running brew audit..."
-            if brew audit --online "$FORMULA_FULL_NAME"; then
-              echo "✅ Audit check passed" > /tmp/audit_result
-            else
-              echo "❌ Audit check failed" > /tmp/audit_result
-              exit 1
-            fi
-          } &
-          AUDIT_PID=$!
-
-          # Wait for both processes and check results
-          wait $STYLE_PID
-          STYLE_EXIT=$?
-          wait $AUDIT_PID
-          AUDIT_EXIT=$?
-
-          # Display results
-          if [[ -f /tmp/style_result ]]; then
-            cat /tmp/style_result
-            rm -f /tmp/style_result
-          fi
-
-          if [[ -f /tmp/audit_result ]]; then
-            cat /tmp/audit_result
-            rm -f /tmp/audit_result
-          fi
-
-          # Check if either failed
-          if [[ $STYLE_EXIT -ne 0 || $AUDIT_EXIT -ne 0 ]]; then
-            echo "❌ One or more validation checks failed"
-            exit 1
-          fi
-
-          echo "✅ All validation checks passed"
-
-      - name: Run brew install and test
+      - name: Build and test formulae
+        if: steps.formulae.outputs.has_formula == 'true'
         env:
-          FORMULA_FULL_NAME: ${{ steps.formula_info.outputs.formula_full_name }}
+          FORMULAE: ${{ steps.formulae.outputs.formulae }}
           HOMEBREW_NO_INSTALL_CLEANUP: 1
-          HOMEBREW_NO_ENV_HINTS: 1
-        run: |
-          set -euo pipefail  # Enable strict error handling
-
-          # Validate required environment variables
-          if [[ -z "${FORMULA_FULL_NAME:-}" ]]; then
-            echo "❌ Error: FORMULA_FULL_NAME is not set"
-            exit 1
-          fi
-
-          echo "Installing from source: $FORMULA_FULL_NAME"
-
-          # Track timing with proper error handling
-          START_TIME=$(date +%s)
-          INSTALL_SUCCESS=false
-
-          # Install with proper error handling
-          if brew install --build-from-source "$FORMULA_FULL_NAME"; then
-            INSTALL_TIME=$(($(date +%s) - START_TIME))
-            echo "✅ Installation successful (${INSTALL_TIME}s)"
-            INSTALL_SUCCESS=true
-          else
-            INSTALL_TIME=$(($(date +%s) - START_TIME))
-            echo "❌ Installation failed after ${INSTALL_TIME}s"
-            echo "Checking if formula was partially installed..."
-            if brew list "$FORMULA_FULL_NAME" >/dev/null 2>&1; then
-              echo "Attempting to clean up partial installation..."
-              brew uninstall "$FORMULA_FULL_NAME" || echo "Failed to uninstall, continuing..."
-            fi
-            exit 1
-          fi
-
-          # Only proceed with tests if installation was successful
-          if [[ "$INSTALL_SUCCESS" == "true" ]]; then
-            echo "Testing formula: $FORMULA_FULL_NAME"
-            TEST_START=$(date +%s)
-            TEST_SUCCESS=false
-
-            if brew test "$FORMULA_FULL_NAME"; then
-              TEST_TIME=$(($(date +%s) - TEST_START))
-              echo "✅ Tests passed (${TEST_TIME}s)"
-              TEST_SUCCESS=true
-            else
-              TEST_TIME=$(($(date +%s) - TEST_START))
-              echo "❌ Tests failed after ${TEST_TIME}s"
-              echo "Attempting to uninstall formula due to test failure..."
-              brew uninstall "$FORMULA_FULL_NAME" || echo "Failed to uninstall after test failure"
-              exit 1
-            fi
-
-            # Clean up if tests passed
-            if [[ "$TEST_SUCCESS" == "true" ]]; then
-              echo "Uninstalling formula: $FORMULA_FULL_NAME"
-              if brew uninstall "$FORMULA_FULL_NAME"; then
-                TOTAL_TIME=$(($(date +%s) - START_TIME))
-                echo "✅ Cleanup successful (total: ${TOTAL_TIME}s)"
-                echo "📊 Performance Summary:"
-                echo "  - Install: ${INSTALL_TIME}s"
-                echo "  - Test: ${TEST_TIME}s"
-                echo "  - Total: ${TOTAL_TIME}s"
-              else
-                echo "⚠️  Warning: Failed to uninstall $FORMULA_FULL_NAME"
-                echo "This may cause issues with subsequent builds"
-                exit 1
-              fi
-            fi
-          fi
-
-      - name: Auto-merge PR
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          PR_BRANCH: ${{ github.event.pull_request.head.ref }}
-          PR_TITLE: ${{ github.event.pull_request.title }}
-          PR_AUTHOR: ${{ github.actor }}
-          FORMULA_NAME: ${{ steps.formula_info.outputs.formula_simple_name }}
         run: |
           set -euo pipefail
 
-          echo "🚀 Attempting to merge PR #${PR_NUMBER}"
-          echo "  📝 Branch: ${PR_BRANCH}"
-          echo "  📋 Title: ${PR_TITLE}"
-          echo "  👤 Author: ${PR_AUTHOR}"
-          echo "  📦 Formula: ${FORMULA_NAME}"
+          while IFS= read -r formula; do
+            full="sheurich/tap/${formula}"
+            echo "Installing ${full}"
+            brew install --build-from-source "$full"
+            echo "Testing ${full}"
+            brew test "$full"
+            echo "Uninstalling ${full}"
+            brew uninstall "$full"
+          done <<<"$FORMULAE"
 
-          # Check PR status before attempting merge with retries for UNKNOWN state
-          echo "🔍 Checking PR mergeable status..."
-          MAX_RETRIES=6
-          RETRY_DELAY=30
-          ATTEMPT=1
+      - name: Merge pull request
+        if: steps.formulae.outputs.has_formula == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_GITHUB_API_TOKEN }}
+        run: |
+          set -euo pipefail
 
-          while [[ $ATTEMPT -le $MAX_RETRIES ]]; do
-            PR_STATE=$(gh pr view "$PR_NUMBER" --json state,mergeable | \
-                       jq -r '.state + ":" + (.mergeable | tostring)')
-            echo "  📊 PR State (attempt $ATTEMPT/$MAX_RETRIES): $PR_STATE"
-
-            case "$PR_STATE" in
-              "OPEN:true")
-                echo "✅ PR is mergeable"
-                break
-                ;;
-              "OPEN:UNKNOWN")
-                if [[ $ATTEMPT -lt $MAX_RETRIES ]]; then
-                  echo "⏳ Mergeable status is UNKNOWN, waiting ${RETRY_DELAY}s..."
-                  sleep $RETRY_DELAY
-                else
-                  echo "❌ PR mergeable status UNKNOWN after $MAX_RETRIES attempts"
-                  echo "Required status checks may be pending"
-                  exit 1
-                fi
-                ;;
-              *)
-                echo "❌ PR is not in a mergeable state: $PR_STATE"
-                echo "Possible reasons:"
-                echo "  - PR may be closed or already merged"
-                echo "  - There may be merge conflicts"
-                echo "  - Required status checks may be failing"
-                exit 1
-                ;;
-            esac
-
-            ((ATTEMPT++))
-          done
-
-          # Attempt merge with proper error handling
-          echo "🔄 Attempting squash merge..."
-          if gh pr merge "$PR_NUMBER" --squash --delete-branch; then
-            # Extract version from title for better reporting
-            VERSION=$(echo "$PR_TITLE" | \
-                      sed -E 's/^[^[:space:]]+ ([^[:space:]]+).*/\1/' || echo "unknown")
-
-            echo "✅ Successfully merged PR #${PR_NUMBER} and deleted branch: ${PR_BRANCH}"
-            echo ""
-            echo "🏆 Auto-merge workflow completed successfully!"
-            echo "  📦 Formula: ${FORMULA_NAME}"
-            echo "  🏷️  Version: ${VERSION}"
-            echo "  ✅ Validation: All checks passed"
-            echo "  🗑️  Cleanup: Branch deleted"
-            echo ""
-            echo "🎉 Users can now install the updated formula!"
-
-            # Create job summary for better visibility
-            {
-              echo "# ✅ Auto-merge Successful"
-              echo ""
-              echo "**Formula:** \`${FORMULA_NAME}\`"
-              echo "**Version:** \`${VERSION}\`"
-              echo "**PR:** #${PR_NUMBER}"
-              echo "**Branch:** \`${PR_BRANCH}\`"
-              echo ""
-              echo "## Validation Results"
-              echo "- ✅ Style check passed"
-              echo "- ✅ Audit check passed"
-              echo "- ✅ Build from source successful"
-              echo "- ✅ Tests passed"
-              echo "- ✅ Auto-merge completed"
-              echo ""
-              echo "The updated formula is now available for users to install."
-            } >> "$GITHUB_STEP_SUMMARY"
-          else
-            MERGE_EXIT=$?
-            echo "❌ Failed to merge PR #${PR_NUMBER} for branch: ${PR_BRANCH}"
-            echo ""
-            echo "🔍 Possible reasons for merge failure:"
-            echo "  - Branch protection rules requiring additional checks"
-            echo "  - Merge conflicts that need manual resolution"
-            echo "  - Required status checks not passing"
-            echo "  - API rate limiting or temporary service issues"
-            echo ""
-            echo "🛠️  Next steps:"
-            echo "  1. Check the PR page for specific merge requirements"
-            echo "  2. Verify all required checks have passed"
-            echo "  3. Consider manual merge if automated merge consistently fails"
-
-            exit $MERGE_EXIT
-          fi
-
-      - name: Notify on failure
-        if: failure()
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b
-        with:
-          script: |
-            const prNumber = context.payload.pull_request.number;
-            const prBranch = context.payload.pull_request.head.ref;
-            const runUrl = `${context.serverUrl}/${context.repo.owner}/` +
-                           `${context.repo.repo}/actions/runs/${context.runId}`;
-
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: prNumber,
-              body: `❌ **Auto-merge failed** for branch \`${prBranch}\`
-
-            The automated validation and merge process encountered an error.
-            Please check the [workflow run](${runUrl}) for details.
-
-            Common issues:
-            - Formula validation failures (style, audit, install, or test)
-            - Branch protection rules requiring manual review
-            - Network or dependency issues
-
-            Manual review and merge may be required.`
-            });
+          gh pr merge "${{ github.event.pull_request.number }}" --squash --delete-branch
