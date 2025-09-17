@@ -2,7 +2,7 @@
 
 # Workflow linting and testing script for GitHub Actions workflows
 # Provides comprehensive validation including YAML syntax, GitHub Actions validation, and shell script checks
-# 
+#
 # Usage:
 #   ./lint-workflows.sh              # Lint all workflows
 #   ./lint-workflows.sh --fix        # Auto-fix issues where possible
@@ -40,7 +40,6 @@ This script performs the following checks:
 - YAML syntax validation with yamllint
 - GitHub Actions workflow validation with actionlint (if available)
 - Shell script validation with shellcheck for embedded scripts
-- Security and best practices validation
 
 EXAMPLES:
   $0                    # Full validation of all workflows
@@ -98,7 +97,7 @@ verbose_log() {
 check_tool_availability() {
   local tool=$1
   local required=${2:-false}
-  
+
   if command -v "$tool" >/dev/null 2>&1; then
     verbose_log "$tool is available"
     return 0
@@ -116,23 +115,23 @@ check_tool_availability() {
 # Function to validate environment
 validate_environment() {
   verbose_log "Validating workflow linting environment"
-  
+
   local errors=0
-  
+
   if ! check_tool_availability yamllint true; then
     ((errors++))
   fi
-  
+
   if [[ "$YAML_ONLY" == "false" ]]; then
     check_tool_availability actionlint false || log_info "actionlint can be installed with: go install github.com/rhymond/actionlint/cmd/actionlint@latest"
     check_tool_availability shellcheck false || log_info "shellcheck can be installed with: apt-get install shellcheck"
   fi
-  
+
   if [[ $errors -gt 0 ]]; then
     log_error "Environment validation failed with $errors errors"
     exit 1
   fi
-  
+
   verbose_log "Environment validation passed"
 }
 
@@ -142,9 +141,9 @@ run_yamllint() {
   if [[ "$FIX_ISSUES" == "true" ]]; then
     log_warning "yamllint doesn't support auto-fixing. Run with manual fixes."
   fi
-  
+
   log_info "Running yamllint on workflow files..."
-  
+
   local yamllint_config=".yamllint.yml"
   if [[ ! -f "$yamllint_config" ]]; then
     log_warning "No .yamllint.yml found, using default configuration"
@@ -152,24 +151,24 @@ run_yamllint() {
   else
     yamllint_config="-c $yamllint_config"
   fi
-  
+
   local exit_code=0
   # Use explicit file list to avoid issues with directory traversal
   local workflow_files
   workflow_files=$(find .github/workflows -name "*.yml" -o -name "*.yaml" 2>/dev/null || echo "")
-  
+
   if [[ -z "$workflow_files" ]]; then
     log_warning "No workflow files found in .github/workflows/"
     return 0
   fi
-  
+
   if yamllint $yamllint_config $workflow_files; then
     log_success "YAML syntax validation passed"
   else
     exit_code=$?
     log_error "YAML syntax validation failed"
   fi
-  
+
   return $exit_code
 }
 
@@ -178,14 +177,14 @@ run_actionlint() {
   if [[ "$YAML_ONLY" == "true" ]]; then
     return 0
   fi
-  
+
   if ! command -v actionlint >/dev/null 2>&1; then
     log_warning "actionlint not available, skipping GitHub Actions validation"
     return 0
   fi
-  
+
   log_info "Running actionlint on workflow files..."
-  
+
   local exit_code=0
   if actionlint; then
     log_success "GitHub Actions validation passed"
@@ -193,7 +192,7 @@ run_actionlint() {
     exit_code=$?
     log_error "GitHub Actions validation failed"
   fi
-  
+
   return $exit_code
 }
 
@@ -278,77 +277,30 @@ validate_embedded_shell() {
   fi
 }
 
-# Function to provide security recommendations
-security_recommendations() {
-  if [[ "$YAML_ONLY" == "true" ]]; then
-    return 0
-  fi
-  
-  log_info "Checking for security best practices..."
-  
-  local workflow_files
-  workflow_files=$(find .github/workflows -name "*.yml" -o -name "*.yaml" 2>/dev/null || echo "")
-  
-  local issues=0
-  
-  for workflow_file in $workflow_files; do
-    verbose_log "Checking security practices in $workflow_file"
-    
-    # Check for pinned action versions
-    if grep -q "uses:.*@[a-f0-9]\{7,\}" "$workflow_file"; then
-      verbose_log "✅ $workflow_file uses pinned action versions"
-    elif grep -q "uses:.*@v[0-9]" "$workflow_file"; then
-      log_warning "⚠️  $workflow_file uses semantic version tags (consider pinning to commit SHA)"
-      ((issues++))
-    fi
-    
-    # Check for secure secret usage
-    if grep -qi "secrets\." "$workflow_file" && ! grep -qi "secrets\.GITHUB_TOKEN" "$workflow_file"; then
-      verbose_log "💡 $workflow_file uses custom secrets - ensure they are properly scoped"
-    fi
-    
-    # Check for write permissions
-    if grep -qi "permissions:" "$workflow_file" && grep -qi "write" "$workflow_file"; then
-      verbose_log "💡 $workflow_file has write permissions - ensure they are minimally scoped"
-    fi
-  done
-  
-  if [[ $issues -eq 0 ]]; then
-    log_success "Security best practices check completed"
-  else
-    log_warning "Found $issues security recommendations"
-  fi
-  
-  return 0
-}
-
 # Main execution logic
 main() {
   log_info "Starting GitHub Actions workflow validation"
   verbose_log "Options: FIX_ISSUES=$FIX_ISSUES, YAML_ONLY=$YAML_ONLY, VERBOSE=$VERBOSE"
-  
+
   validate_environment
-  
+
   local total_errors=0
-  
+
   # Run YAML linting
   if ! run_yamllint; then
     ((total_errors++))
   fi
-  
+
   # Run actionlint
   if ! run_actionlint; then
     ((total_errors++))
   fi
-  
+
   # Validate embedded shell scripts
   if ! validate_embedded_shell; then
     ((total_errors++))
   fi
-  
-  # Security recommendations
-  security_recommendations
-  
+
   # Summary
   printf "\n"
   if [[ $total_errors -eq 0 ]]; then
