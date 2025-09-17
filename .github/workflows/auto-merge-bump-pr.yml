@@ -31,33 +31,14 @@ jobs:
       - name: Set up Homebrew
         uses: Homebrew/actions/setup-homebrew@main
 
-      - name: Setup tap
+      - name: Test formulae
         env:
+          HOMEBREW_NO_INSTALL_CLEANUP: 1
           HOMEBREW_NO_INSTALL_FROM_API: 1
         run: |
           set -euo pipefail
 
-          brew tap "${TAP_NAME}" "$PWD"
-          brew tap
-
-      - name: Run brew style and audit
-        run: |
-          set -euo pipefail
-
-          brew style "${TAP_NAME}"
-          brew audit --strict --git --online --tap "${TAP_NAME}"
-
-      - name: Build and test formulae
-        env:
-          HOMEBREW_NO_INSTALL_CLEANUP: 1
-        run: |
-          set -euo pipefail
-
-          for formula in $(brew search "${TAP_NAME}"); do
-            echo "Building and testing ${formula}..."
-            brew install --build-from-source "${formula}"
-            brew test "${formula}"
-          done
+          brew test-bot --tap "${TAP_NAME}"
 
       - name: Merge pull request
         env:
