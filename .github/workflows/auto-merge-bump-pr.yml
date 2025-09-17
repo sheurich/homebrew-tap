@@ -19,78 +19,47 @@ jobs:
     if: startsWith(github.head_ref, 'bump-')
     runs-on: ubuntu-latest
     env:
+      TAP_NAME: sheurich/tap
       HOMEBREW_NO_AUTO_UPDATE: 1
       HOMEBREW_NO_ANALYTICS: 1
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
-          fetch-depth: 0
+          fetch-depth: 1
 
       - name: Set up Homebrew
-        uses: Homebrew/actions/setup-homebrew@master
+        uses: Homebrew/actions/setup-homebrew@main
 
-      - name: Determine changed formulae
+      - name: Setup tap
         id: formulae
         run: |
           set -euo pipefail
 
-          BASE_SHA="${{ github.event.pull_request.base.sha }}"
-          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
-
-          FORMULAE=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- 'Formula/*.rb' \
-            | sed -e 's#^Formula/##' -e 's#\.rb$##' \
-            | sort -u)
-
-          if [[ -z "$FORMULAE" ]]; then
-            echo "No formula changes detected in this PR."
-            echo "has_formula=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          {
-            echo "formulae<<EOF"
-            echo "$FORMULAE"
-            echo "EOF"
-            echo "has_formula=true"
-          } >> "$GITHUB_OUTPUT"
+          brew tap "${TAP_NAME}" "file:///$PWD"
+          brew tap
 
       - name: Run brew style and audit
-        if: steps.formulae.outputs.has_formula == 'true'
-        env:
-          FORMULAE: ${{ steps.formulae.outputs.formulae }}
         run: |
           set -euo pipefail
 
-          while IFS= read -r formula; do
-            file="Formula/${formula}.rb"
-            echo "Running style and audit checks for ${file}"
-            brew style "$file"
-            brew audit --strict --online "$file"
-          done <<<"$FORMULAE"
+          brew style "${TAP_NAME}"
+          brew audit --strict --git --online --tap "${TAP_NAME}"
 
       - name: Build and test formulae
-        if: steps.formulae.outputs.has_formula == 'true'
         env:
-          FORMULAE: ${{ steps.formulae.outputs.formulae }}
           HOMEBREW_NO_INSTALL_CLEANUP: 1
         run: |
           set -euo pipefail
 
-          while IFS= read -r formula; do
-            full="sheurich/tap/${formula}"
-            echo "Installing ${full}"
-            brew install --build-from-source "$full"
-            echo "Testing ${full}"
-            brew test "$full"
-            echo "Uninstalling ${full}"
-            brew uninstall "$full"
-          done <<<"$FORMULAE"
+          for formula in $(brew search "${TAP_NAME}"); do
+            echo "Building and testing ${formula}..."
+            brew install --build-from-source "${formula}"
+            brew test "${formula}"
+          done
 
       - name: Merge pull request
-        if: steps.formulae.outputs.has_formula == 'true'
         env:
-          GH_TOKEN: ${{ secrets.HOMEBREW_GITHUB_API_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           set -euo pipefail
