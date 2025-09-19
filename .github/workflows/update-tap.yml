@@ -10,21 +10,14 @@ permissions:
   contents: write
   pull-requests: write
 
-concurrency:
-  group: update-tap
-  cancel-in-progress: true
-
 jobs:
-  bump-formulae:
+  update:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Run brew bump-formula-pr
-        uses: dawidd6/action-homebrew-bump-formula@v5
+      - uses: dawidd6/action-homebrew-bump-formula@v5
         with:
           livecheck: true
           tap: sheurich/tap
