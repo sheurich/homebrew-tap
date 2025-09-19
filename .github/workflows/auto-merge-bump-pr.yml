@@ -2,48 +2,22 @@ name: Test and merge bump PRs
 
 on:
   pull_request:
-    types:
-      - opened
-      - synchronize
-      - reopened
-      - ready_for_review
-    branches:
-      - main
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [main]
 
 permissions:
   contents: write
   pull-requests: write
 
 jobs:
-  build:
+  test-and-merge:
     if: startsWith(github.head_ref, 'bump-')
     runs-on: ubuntu-latest
-    env:
-      TAP_NAME: sheurich/tap
-      HOMEBREW_NO_AUTO_UPDATE: 1
-      HOMEBREW_NO_ANALYTICS: 1
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
-        with:
-          fetch-depth: 1
-
-      - name: Set up Homebrew
-        uses: Homebrew/actions/setup-homebrew@main
-
-      - name: Test formulae
+      - uses: actions/checkout@v5
+      - uses: Homebrew/actions/setup-homebrew@main
+      - run: |
+          brew test-bot --tap sheurich/tap
+          gh pr merge ${{ github.event.pull_request.number }} --squash --delete-branch
         env:
-          HOMEBREW_NO_INSTALL_CLEANUP: 1
-          HOMEBREW_NO_INSTALL_FROM_API: 1
-        run: |
-          set -euo pipefail
-
-          brew test-bot --tap "${TAP_NAME}"
-
-      - name: Merge pull request
-        env:
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: |
-          set -euo pipefail
-
-          gh pr merge "$PR_NUMBER" --squash --delete-branch
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
