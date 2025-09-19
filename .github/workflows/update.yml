@@ -17,3 +17,5 @@ jobs:
           livecheck: true
           tap: ${{github.repository}}
           token: ${{ secrets.HOMEBREW_GITHUB_API_TOKEN }}
+          user_name: ${{ github.actor }}
+          user_email: ${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com
