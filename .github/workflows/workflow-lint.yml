@@ -3,18 +3,18 @@
 # Runs automated checks on GitHub Actions workflows to ensure quality and security
 name: Workflow Linting
 
-'on':
+"on":
   pull_request:
     paths:
-      - '.github/workflows/**'
-      - '.yamllint.yml'
-      - 'lint-workflows.sh'
+      - ".github/workflows/**"
+      - ".yamllint.yml"
+      - "lint-workflows.sh"
   push:
     branches: [main]
     paths:
-      - '.github/workflows/**'
-      - '.yamllint.yml'
-      - 'lint-workflows.sh'
+      - ".github/workflows/**"
+      - ".yamllint.yml"
+      - "lint-workflows.sh"
   workflow_dispatch:
 
 permissions:
@@ -27,12 +27,12 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332  # v4.1.7
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
 
       - name: Set up Python for yamllint
-        uses: actions/setup-python@f677139bbe7f9c59b41e40162b753c062f5d49a3  # v5.1.0
+        uses: actions/setup-python@f677139bbe7f9c59b41e40162b753c062f5d49a3 # v5.1.0
         with:
-          python-version: '3.12'
+          python-version: "3.12"
 
       - name: Install yamllint
         run: pip install yamllint==1.37.1
