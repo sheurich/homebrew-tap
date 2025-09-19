@@ -17,12 +17,12 @@ test do
   assert_match version.to_s, shell_output("#{bin}/boulder --version")
 
   # Test that key binaries exist and are functional
-    %w[boulder-ca boulder-ra boulder-sa boulder-va boulder-wfe].each do |binary|
-      next unless (bin/binary).exist?
+  %w[boulder-ca boulder-ra boulder-sa boulder-va boulder-wfe].each do |binary|
+    next unless (bin/binary).exist?
 
-      assert_match(/Usage|Commands|Options/i, shell_output("#{bin}/#{binary} --help", 1))
-    end
+    assert_match(/Usage|Commands|Options/i, shell_output("#{bin}/#{binary} --help", 1))
   end
+end
 ```
 
 #### Service Definition

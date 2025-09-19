@@ -29,7 +29,7 @@ class Ingest < Formula
       version_tag = stable.specs[:tag]
       build_time = "+#{stable.specs[:revision][0, 8]}"
     end
-    
+
     # Build using upstream's Makefile with expected variables
     system "make", "VERSION=#{version_tag}", "BUILD_TIME=#{build_time}"
     bin.install "ingest"

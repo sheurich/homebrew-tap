@@ -3,13 +3,13 @@
 # Development testing script for Homebrew formulas
 # Provides comprehensive testing including style, audit, livecheck, and build validation
 # Based on the README guidance for isolated build/test
-# 
+#
 # Usage:
 #   ./dev-test.sh              # Test all formulas
 #   ./dev-test.sh boulder      # Test specific formula
 #   ./dev-test.sh --help       # Show help
 
-set -euo pipefail  # Enable strict error handling
+set -euo pipefail # Enable strict error handling
 
 # Ensure Homebrew is in PATH
 export PATH="/home/linuxbrew/.linuxbrew/bin:${PATH}"
@@ -29,7 +29,7 @@ log_error() { echo -e "${RED}❌ $1${NC}"; }
 
 # Function to show help
 show_help() {
-  cat << EOF
+  cat <<EOF
 Homebrew Formula Development Testing Script
 
 Usage: $0 [OPTIONS] [FORMULA]
@@ -64,7 +64,8 @@ VERBOSE=false
 NO_BUILD=false
 FORMULA=""
 
-while [[ $# -gt 0 ]]; do
+while [[ $# -gt 0 ]]
+do
   case $1 in
     --help)
       show_help
@@ -84,7 +85,8 @@ while [[ $# -gt 0 ]]; do
       exit 1
       ;;
     *)
-      if [[ -n "$FORMULA" ]]; then
+      if [[ -n "${FORMULA}" ]]
+      then
         log_error "Multiple formulas specified. Please specify only one."
         exit 1
       fi
@@ -99,7 +101,8 @@ FORMULA=${FORMULA:-all}
 
 # Verbose logging
 verbose_log() {
-  if [[ "$VERBOSE" == "true" ]]; then
+  if [[ "${VERBOSE}" == "true" ]]
+  then
     log_info "$1"
   fi
 }
@@ -111,77 +114,83 @@ test_formula() {
   local formula=$1
   printf "\n==> Testing formula: %s\n" "${formula}"
 
-  verbose_log "Starting comprehensive validation for $formula"
+  verbose_log "Starting comprehensive validation for ${formula}"
 
   # Validate formula exists
-  if [[ ! -f "Formula/${formula}.rb" ]]; then
+  if [[ ! -f "Formula/${formula}.rb" ]]
+  then
     log_error "Formula file not found: Formula/${formula}.rb"
     return 1
   fi
 
   log_info "Running brew style..."
-  if brew style --formula "sheurich/tap/${formula}"; then
+  if brew style --formula "sheurich/tap/${formula}"
+  then
     log_success "Style check passed"
   else
-    log_error "Style check failed for $formula"
+    log_error "Style check failed for ${formula}"
     return 1
   fi
 
   log_info "Running brew audit (offline)..."
-  if brew audit --strict --formula "sheurich/tap/${formula}"; then
+  if brew audit --strict --formula "sheurich/tap/${formula}"
+  then
     log_success "Offline audit passed"
   else
-    log_error "Offline audit failed for $formula"
+    log_error "Offline audit failed for ${formula}"
     return 1
   fi
 
   log_info "Running brew audit (online)..."
-  if brew audit --online --strict --formula "sheurich/tap/${formula}"; then
+  if brew audit --online --strict --formula "sheurich/tap/${formula}"
+  then
     log_success "Online audit passed"
   else
-    log_warning "Online audit failed for $formula (may be due to network issues)"
+    log_warning "Online audit failed for ${formula} (may be due to network issues)"
   fi
 
   log_info "Checking for updates with livecheck..."
-  if brew livecheck "sheurich/tap/${formula}"; then
+  if brew livecheck "sheurich/tap/${formula}"
+  then
     log_success "Livecheck completed"
   else
-    log_warning "Livecheck failed for $formula"
+    log_warning "Livecheck failed for ${formula}"
   fi
 
   log_info "Formula info:"
   brew info "sheurich/tap/${formula}" || log_warning "Failed to get formula info"
-  
-  log_success "All checks completed for $formula"
+
+  log_success "All checks completed for ${formula}"
 }
 
 # Function to run isolated build/test
 isolated_build_test() {
   local formula=$1
-  
-  if [[ "$NO_BUILD" == "true" ]]; then
+
+  if [[ "${NO_BUILD}" == "true" ]]
+  then
     log_info "Skipping isolated build test (--no-build specified)"
     return 0
   fi
-  
+
   printf "\n==> Running isolated build/test for: %s\n" "${formula}"
 
   # Create temporary directory with proper cleanup
   local tmpbrew
   tmpbrew="$(mktemp -d -t homebrew-test-XXXXXX)"
-  
+
   # Ensure cleanup on exit
   trap 'rm -rf "$tmpbrew"' EXIT
-  
+
   log_info "Using temporary Homebrew prefix: ${tmpbrew}"
 
   verbose_log "Setting up isolated environment variables"
-  
+
   # Note: This requires the formula to be available for installation
   # For development testing, we can run the style/audit checks instead
   log_warning "Skipping build test (would require specific version/tag match)"
   log_info "To run full build test manually:"
-  cat << EOF
+  cat <<EOF
      HOMEBREW_CACHE='${tmpbrew}/Cache' \\
      HOMEBREW_TEMP='${tmpbrew}/Temp' \\
      HOMEBREW_PREFIX='${tmpbrew}/prefix' \\
@@ -197,57 +206,66 @@ EOF
 # Function to validate environment
 validate_environment() {
   verbose_log "Validating development environment"
-  
-  if ! command -v brew >/dev/null 2>&1; then
+
+  if ! command -v brew >/dev/null 2>&1
+  then
     log_error "Homebrew not found in PATH. Please install Homebrew first."
     exit 1
   fi
-  
-  if ! brew --version >/dev/null 2>&1; then
+
+  if ! brew --version >/dev/null 2>&1
+  then
     log_error "Homebrew is not working properly"
     exit 1
   fi
-  
+
   verbose_log "Environment validation passed"
 }
 
 # Main execution logic
 main() {
   validate_environment
-  
-  if [[ "${FORMULA}" = "all" ]]; then
+
+  if [[ "${FORMULA}" = "all" ]]
+  then
     log_info "Testing all formulas"
-    
+
     # Get list of available formulas
     local formulas=()
-    for formula_file in Formula/*.rb; do
-      if [[ -f "$formula_file" ]]; then
+    for formula_file in Formula/*.rb
+    do
+      if [[ -f "${formula_file}" ]]
+      then
         local formula_name
-        formula_name=$(basename "$formula_file" .rb)
-        formulas+=("$formula_name")
+        formula_name=$(basename "${formula_file}" .rb)
+        formulas+=("${formula_name}")
       fi
     done
-    
-    if [[ ${#formulas[@]} -eq 0 ]]; then
+
+    if [[ ${#formulas[@]} -eq 0 ]]
+    then
       log_error "No formula files found in Formula/ directory"
       exit 1
     fi
-    
+
     log_info "Found ${#formulas[@]} formulas: ${formulas[*]}"
-    
+
     # Test each formula
     local failed_formulas=()
-    for formula in "${formulas[@]}"; do
-      if ! test_formula "$formula"; then
-        failed_formulas+=("$formula")
-        log_error "Tests failed for $formula"
+    for formula in "${formulas[@]}"
+    do
+      if ! test_formula "${formula}"
+      then
+        failed_formulas+=("${formula}")
+        log_error "Tests failed for ${formula}"
       fi
     done
-    
+
     # Tap-wide checks
     printf "\n==> Running tap-wide checks\n"
     log_info "Running brew style for all formulae..."
-    if brew style Formula; then
+    if brew style Formula
+    then
       log_success "Tap-wide style check passed"
     else
       log_error "Tap-wide style check failed"
@@ -255,7 +273,8 @@ main() {
     fi
 
     log_info "Running brew audit for entire tap..."
-    if brew audit --online --strict --tap sheurich/tap; then
+    if brew audit --online --strict --tap sheurich/tap
+    then
       log_success "Tap-wide audit passed"
     else
       log_warning "Tap-wide audit failed (may be due to network issues)"
@@ -263,9 +282,11 @@ main() {
 
     # Workflow linting
     printf "\n==> Running workflow validation\n"
-    if [[ -x "./lint-workflows.sh" ]]; then
+    if [[ -x "./lint-workflows.sh" ]]
+    then
       log_info "Running workflow linting..."
-      if ./lint-workflows.sh --yaml-only; then
+      if ./lint-workflows.sh --yaml-only
+      then
         log_success "Workflow YAML validation passed"
       else
         log_warning "Workflow validation failed"
@@ -274,9 +295,10 @@ main() {
     else
       log_warning "Workflow linting script not found or not executable"
     fi
-    
+
     # Summary
-    if [[ ${#failed_formulas[@]} -eq 0 ]]; then
+    if [[ ${#failed_formulas[@]} -eq 0 ]]
+    then
       log_success "All tests passed!"
     else
       log_error "Some tests failed for: ${failed_formulas[*]}"
@@ -284,18 +306,21 @@ main() {
     fi
   else
     # Validate formula exists
-    if [[ ! -f "Formula/${FORMULA}.rb" ]]; then
+    if [[ ! -f "Formula/${FORMULA}.rb" ]]
+    then
       log_error "Formula not found: ${FORMULA}"
       log_info "Available formulas:"
-      for formula_file in Formula/*.rb; do
-        if [[ -f "$formula_file" ]]; then
-          formula_name=$(basename "$formula_file" .rb)
-          echo "  - $formula_name"
+      for formula_file in Formula/*.rb
+      do
+        if [[ -f "${formula_file}" ]]
+        then
+          formula_name=$(basename "${formula_file}" .rb)
+          echo "  - ${formula_name}"
         fi
       done
       exit 1
     fi
-    
+
     test_formula "${FORMULA}"
     isolated_build_test "${FORMULA}"
   fi
