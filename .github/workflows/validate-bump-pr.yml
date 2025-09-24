@@ -16,6 +16,17 @@ jobs:
 
       - uses: Homebrew/actions/setup-homebrew@main
 
+      - name: Enable auto-merge
+        if: github.event.action == 'opened'
+        run: |
+          PR_NUM=${{ github.event.pull_request.number }}
+          echo "Enabling auto-merge for PR #$PR_NUM"
+          gh pr merge $PR_NUM \
+            --repo ${{ github.repository }} \
+            --auto --squash --delete-branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Run test-bot validation
         run: |
           # Comprehensive formula testing

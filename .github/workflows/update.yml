@@ -11,42 +11,12 @@ jobs:
   update:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: Homebrew/actions/setup-homebrew@main
-
-      - name: Bump formulas and auto-merge
-        run: |
-          # Configure git
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email \
-            "github-actions[bot]@users.noreply.github.com"
-
-          # Dynamically get all formula names from the Formula directory
-          for formula_file in Formula/*.rb; do
-            # Extract formula name (remove path and .rb extension)
-            formula=$(basename "$formula_file" .rb)
-
-            echo "Checking $formula for updates..."
-
-            # Check if updates are available
-            if brew livecheck --tap="${{ github.repository }}" \
-               --newer-only "$formula"; then
-              echo "Updates available for $formula"
-
-              # Create PR and capture the URL
-              PR_URL=$(brew bump-formula-pr --no-browse \
-                --tap="${{ github.repository }}" "$formula" 2>&1 | \
-                grep "https://github.com")
-
-              # If PR was created, enable auto-merge
-              if [ -n "$PR_URL" ]; then
-                PR_NUMBER=$(echo "$PR_URL" | grep -o '[0-9]*$')
-                echo "Created PR #$PR_NUMBER for $formula, enabling auto-merge"
-                gh pr merge "$PR_NUMBER" --repo "${{ github.repository }}" \
-                  --auto --squash --delete-branch
-              fi
-            fi
-          done
-        env:
-          HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.HOMEBREW_GITHUB_API_TOKEN }}
-          GH_TOKEN: ${{ secrets.HOMEBREW_GITHUB_API_TOKEN }}
+      - name: Update formulas
+        uses: dawidd6/action-homebrew-bump-formula@v5
+        with:
+          livecheck: true
+          tap: ${{github.repository}}
+          token: ${{ secrets.HOMEBREW_GITHUB_API_TOKEN }}
+          user_name: ${{ github.actor }}
+          user_email: >-
+            ${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com
