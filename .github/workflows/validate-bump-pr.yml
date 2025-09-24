@@ -1,0 +1,23 @@
+---
+name: Validate Bump PR
+
+'on':
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+
+jobs:
+  validate:
+    if: startsWith(github.head_ref, 'bump-')
+    runs-on: macos-latest
+    name: Formula Validation
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: Homebrew/actions/setup-homebrew@main
+
+      - name: Run test-bot validation
+        run: |
+          # Comprehensive formula testing
+          # Includes: audit, style, install, and test
+          brew test-bot --tap=${{ github.repository }}
