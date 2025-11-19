@@ -20,9 +20,14 @@ jobs:
         uses: Homebrew/actions/setup-homebrew@master
 
       - name: Configure Git
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_GITHUB_API_TOKEN }}
         run: |
           git config --global user.name "${{ github.actor }}"
           git config --global user.email "${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com"
+
+          # Configure git to use token for authentication
+          git config --global url."https://x-access-token:${GH_TOKEN}@github.com/".insteadOf "https://github.com/"
 
       - name: Check for updates and create PRs
         env:
