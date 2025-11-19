@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Update formulas
-        uses: dawidd6/action-homebrew-bump-formula@v5
+        uses: sheurich/action-homebrew-bump-formula@dfa608a07e77f96aa34d0c8a35fc62efa863417f
         with:
           livecheck: true
           tap: ${{github.repository}}
