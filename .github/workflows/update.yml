@@ -11,6 +11,9 @@ jobs:
   update:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Set up Homebrew
         uses: Homebrew/actions/setup-homebrew@master
 
@@ -19,9 +22,115 @@ jobs:
           git config --global user.name "${{ github.actor }}"
           git config --global user.email "${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com"
 
-      - name: Update formulas
+      - name: Check for updates and create PRs
         env:
           HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.HOMEBREW_GITHUB_API_TOKEN }}
+          GH_TOKEN: ${{ secrets.HOMEBREW_GITHUB_API_TOKEN }}
         run: |
-          brew developer on
-          brew bump --tap=${{ github.repository }} --no-fork --open-pr --formulae
+          set -e
+
+          # Get outdated formulas
+          outdated=$(brew livecheck --tap=${{ github.repository }} --newer-only --json --formula || echo "[]")
+
+          # Process each outdated formula
+          echo "$outdated" | jq -c '.[] | select(.version.outdated == true)' | while read -r formula_data; do
+            formula=$(echo "$formula_data" | jq -r '.formula')
+            current_version=$(echo "$formula_data" | jq -r '.version.current')
+            latest_version=$(echo "$formula_data" | jq -r '.version.latest')
+
+            echo "Processing $formula: $current_version → $latest_version"
+
+            # Create a branch for this update
+            branch_name="bump-$formula-$latest_version"
+            git checkout -b "$branch_name"
+
+            # Determine formula file path
+            formula_file="Formula/$formula.rb"
+
+            if [[ ! -f "$formula_file" ]]; then
+              echo "Formula file not found: $formula_file"
+              git checkout main
+              continue
+            fi
+
+            # Check if this is a git-based formula (has tag: and revision:)
+            if grep -q "tag:" "$formula_file" && grep -q "revision:" "$formula_file"; then
+              # Git-based formula (like boulder)
+              echo "Updating git-based formula: $formula"
+
+              # Construct the tag
+              tag="v$latest_version"
+
+              # Get the repository URL
+              repo_url=$(grep -A 1 "url.*\.git" "$formula_file" | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
+
+              # Fetch the commit SHA for this tag
+              revision=$(git ls-remote "$repo_url" "refs/tags/${tag}^{}" | cut -f1)
+
+              if [[ -z "$revision" ]]; then
+                echo "Could not find revision for tag $tag"
+                git checkout main
+                git branch -D "$branch_name"
+                continue
+              fi
+
+              echo "Tag: $tag, Revision: $revision"
+
+              # Update the formula file
+              sed -i "s|tag:.*|tag:      \"$tag\",|" "$formula_file"
+              sed -i "s|revision:.*|revision: \"$revision\"|" "$formula_file"
+
+            else
+              # URL-based formula (like ingest)
+              echo "Updating URL-based formula: $formula"
+
+              # Get the URL pattern
+              old_url=$(grep "url " "$formula_file" | grep -v "livecheck" | sed -E 's/.*"([^"]+)".*/\1/')
+              new_url=$(echo "$old_url" | sed "s/$current_version/$latest_version/g")
+
+              echo "New URL: $new_url"
+
+              # Download and compute SHA256
+              echo "Downloading and computing SHA256..."
+              sha256=$(curl -fsSL "$new_url" | shasum -a 256 | cut -d' ' -f1)
+
+              if [[ -z "$sha256" ]]; then
+                echo "Could not compute SHA256"
+                git checkout main
+                git branch -D "$branch_name"
+                continue
+              fi
+
+              echo "SHA256: $sha256"
+
+              # Update the formula file
+              sed -i "s|url .*|url \"$new_url\"|" "$formula_file"
+              sed -i "s|sha256 .*|sha256 \"$sha256\"|" "$formula_file"
+            fi
+
+            # Commit the changes
+            git add "$formula_file"
+            git commit -m "$formula $latest_version"
+
+            # Push and create PR
+            git push origin "$branch_name"
+
+            # Check if PR already exists
+            existing_pr=$(gh pr list --head "$branch_name" --json number --jq '.[0].number' || echo "")
+
+            if [[ -z "$existing_pr" ]]; then
+              gh pr create \
+                --title "$formula $latest_version" \
+                --body "Automated update of $formula from $current_version to $latest_version" \
+                --head "$branch_name" \
+                --base main
+              echo "Created PR for $formula $latest_version"
+            else
+              echo "PR already exists for $branch_name (#$existing_pr)"
+            fi
+
+            # Return to main branch
+            git checkout main
+          done
+
+          echo "Update check complete"
