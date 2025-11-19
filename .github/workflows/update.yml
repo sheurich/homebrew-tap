@@ -11,12 +11,17 @@ jobs:
   update:
     runs-on: ubuntu-latest
     steps:
+      - name: Set up Homebrew
+        uses: Homebrew/actions/setup-homebrew@master
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "${{ github.actor }}"
+          git config --global user.email "${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com"
+
       - name: Update formulas
-        uses: sheurich/action-homebrew-bump-formula@dfa608a07e77f96aa34d0c8a35fc62efa863417f
-        with:
-          livecheck: true
-          tap: ${{github.repository}}
-          token: ${{ secrets.HOMEBREW_GITHUB_API_TOKEN }}
-          user_name: ${{ github.actor }}
-          user_email: >-
-            ${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com
+        env:
+          HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.HOMEBREW_GITHUB_API_TOKEN }}
+        run: |
+          brew developer on
+          brew bump --tap=${{ github.repository }} --no-fork --open-pr --formulae
