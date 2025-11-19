@@ -1,0 +1,24 @@
+name: Homebrew diagnostics
+
+on:
+  push:
+    branches:
+      - '**'
+
+permissions: {}
+
+jobs:
+  diagnose-homebrew:
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Set up Homebrew
+        uses: Homebrew/actions/setup-homebrew@master
+
+      - name: Run brew doctor
+        run: brew doctor
+
+      - name: Output Homebrew diagnostics
+        run: |
+          brew config
+          brew --env
