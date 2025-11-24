@@ -12,7 +12,7 @@ jobs:
     runs-on: macos-latest
     name: Formula Validation
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - uses: Homebrew/actions/setup-homebrew@main
 
