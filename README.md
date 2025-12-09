@@ -53,8 +53,8 @@ brew test-bot --only-formulae --only-json-tab
 #### Boulder (`Formula/boulder.rb`)
 - Extracts commit timestamp for reproducible builds:
   ```ruby
-commit_time = Utils.git_commit_timestamp(stable.url, stable.specs[:revision], timezone: "UTC")
-ldflags = "-s -w -X github.com/letsencrypt/boulder/core.BuildTime=#{commit_time.iso8601}"
+  commit_time = Utils.git_commit_timestamp(stable.url, stable.specs[:revision], timezone: "UTC")
+  ldflags = "-s -w -X github.com/letsencrypt/boulder/core.BuildTime=#{commit_time.iso8601}"
   ```
 - Installs all binaries from `bin/*` directory
 - Test validates version format: `/\d+\.\d{8}\.\d+/`
