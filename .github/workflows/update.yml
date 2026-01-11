@@ -4,8 +4,11 @@ name: Update tap
 'on':
   schedule:
     - cron: "0 0 * * *"
-    - cron: "0 12 * * *"
   workflow_dispatch:
+
+concurrency:
+  group: update-tap
+  cancel-in-progress: true
 
 jobs:
   update:

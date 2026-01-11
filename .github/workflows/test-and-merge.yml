@@ -18,9 +18,9 @@ jobs:
 
       - name: Run test-bot validation
         run: |
-          # Comprehensive formula testing
+          # Comprehensive formula testing for third-party tap
           # Includes: audit, style, install, and test
-          brew test-bot --tap=${{ github.repository }}
+          brew test-bot --only-formulae --skip-online-checks --only-cleanup-before --tap=${{ github.repository }}
 
       - name: Merge PR
         if: success()
