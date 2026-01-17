@@ -11,16 +11,35 @@ jobs:
     if: startsWith(github.head_ref, 'bump-')
     runs-on: macos-latest
     name: Formula Validation
+    env:
+      HOMEBREW_DEVELOPER: 1
+      HOMEBREW_GITHUB_ACTIONS: 1
+      HOMEBREW_NO_AUTO_UPDATE: 1
+      HOMEBREW_NO_INSTALL_FROM_API: 1
+      BOTTLES_DIR: ${{ github.workspace }}/bottles
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
 
-      - uses: Homebrew/actions/setup-homebrew@main
+      - name: Pre-build steps
+        uses: Homebrew/actions/pre-build@678e6fb362fa21229c906d88aa6270f354d58188 # main
+        with:
+          bottles-directory: ${{ env.BOTTLES_DIR }}
 
       - name: Run test-bot validation
+        working-directory: ${{ env.BOTTLES_DIR }}
         run: |
           # Comprehensive formula testing
           # Includes: audit, style, install, and test
           brew test-bot --tap=${{ github.repository }}
+
+      - name: Post-build steps
+        if: always()
+        uses: Homebrew/actions/post-build@678e6fb362fa21229c906d88aa6270f354d58188 # main
+        with:
+          runner: ${{ runner.os }}
+          bottles-directory: ${{ env.BOTTLES_DIR }}
+          logs-directory: ${{ format('{0}/logs', env.BOTTLES_DIR) }}
+          upload-bottles: false
 
       - name: Merge PR
         if: success()
