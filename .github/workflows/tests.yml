@@ -40,29 +40,12 @@ jobs:
 
       - run: brew test-bot --only-cleanup-before
 
-      - name: Diagnose bundle dir perms
-        run: |
-          set -euo pipefail
-          brew_repo="$(brew --repository)"
-          paths=(
-            "${brew_repo}"
-            "${brew_repo}/Library/Homebrew"
-            "${brew_repo}/Library/Homebrew/vendor"
-            "${brew_repo}/Library/Homebrew/vendor/bundle"
-            "${brew_repo}/Library/Homebrew/vendor/bundle/ruby"
-            "${brew_repo}/Library/Homebrew/vendor/bundle/ruby/3.4.0"
-            "${brew_repo}/Library/Homebrew/vendor/bundle/ruby/3.4.0/gems"
-          )
-          ls -ld "${paths[@]}" || true
-          case "$(uname -s)" in
-            Darwin) stat -f '%Lp %Su:%Sg %N' "${paths[@]}" || true ;;
-            *) stat -c '%a %U:%G %n' "${paths[@]}" || true ;;
-          esac
-
       - name: Fix Homebrew perms
         run: |
           set -euo pipefail
           brew_repo="$(brew --repository)"
+          # Temporary workaround for ubuntu-22.04-arm runner image permissions.
+          # The Homebrew prefix is not writable by the runner user without this.
           sudo chown -R "$(id -un)":"$(id -gn)" "${brew_repo}"
           sudo chmod -R go-w "${brew_repo}"
 

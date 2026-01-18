@@ -100,11 +100,15 @@ This tap self-maintains through GitHub Actions.
 - **Output**: Creates PRs with `bump-[formula]-[version]` naming.
 - **Authentication**: Uses `HOMEBREW_GITHUB_API_TOKEN` secret.
 
-### Test & Merge Workflow (`.github/workflows/test-and-merge.yml`)
+### Test Workflow (`.github/workflows/tests.yml`)
 
-- **Trigger**: PRs with `bump-` prefix.
+- **Trigger**: Pushes to `main` and pull requests.
 - **Validation**: Runs `brew test-bot` (audit, style, install, test).
-- **Completion**: Auto-merges passing PRs via squash merge, deletes branch.
+
+### Auto-Merge Workflow (`.github/workflows/automerge-bump-pr.yml`)
+
+- **Trigger**: Successful `brew test-bot` workflow runs.
+- **Completion**: Auto-merges passing `bump-` PRs via squash merge, deletes branch.
 
 ## Contributing
 
