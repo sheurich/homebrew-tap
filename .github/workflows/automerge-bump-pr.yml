@@ -1,7 +1,7 @@
 ---
 name: Auto-merge bump PRs
 
-on:
+'on':
   workflow_run:
     workflows: ["brew test-bot"]
     types: [completed]
