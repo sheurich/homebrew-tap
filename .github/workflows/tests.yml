@@ -34,22 +34,24 @@ jobs:
 
       - run: brew test-bot --only-cleanup-before
 
-      - name: Diagnose bundle dir perms (ubuntu-22.04-arm)
-        if: matrix.os == 'ubuntu-22.04-arm'
+      - name: Diagnose bundle dir perms
         run: |
           set -euo pipefail
+          brew_repo="$(brew --repository)"
           paths=(
-            /home/linuxbrew/.linuxbrew
-            /home/linuxbrew/.linuxbrew/Homebrew
-            /home/linuxbrew/.linuxbrew/Homebrew/Library/Homebrew
-            /home/linuxbrew/.linuxbrew/Homebrew/Library/Homebrew/vendor
-            /home/linuxbrew/.linuxbrew/Homebrew/Library/Homebrew/vendor/bundle
-            /home/linuxbrew/.linuxbrew/Homebrew/Library/Homebrew/vendor/bundle/ruby
-            /home/linuxbrew/.linuxbrew/Homebrew/Library/Homebrew/vendor/bundle/ruby/3.4.0
-            /home/linuxbrew/.linuxbrew/Homebrew/Library/Homebrew/vendor/bundle/ruby/3.4.0/gems
+            "${brew_repo}"
+            "${brew_repo}/Library/Homebrew"
+            "${brew_repo}/Library/Homebrew/vendor"
+            "${brew_repo}/Library/Homebrew/vendor/bundle"
+            "${brew_repo}/Library/Homebrew/vendor/bundle/ruby"
+            "${brew_repo}/Library/Homebrew/vendor/bundle/ruby/3.4.0"
+            "${brew_repo}/Library/Homebrew/vendor/bundle/ruby/3.4.0/gems"
           )
           ls -ld "${paths[@]}" || true
-          stat -c '%a %U:%G %n' "${paths[@]}" || true
+          case "$(uname -s)" in
+            Darwin) stat -f '%Lp %Su:%Sg %N' "${paths[@]}" || true ;;
+            *) stat -c '%a %U:%G %n' "${paths[@]}" || true ;;
+          esac
 
       - run: brew test-bot --only-setup
 
