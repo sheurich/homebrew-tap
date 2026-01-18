@@ -146,9 +146,10 @@ All formulas must:
 ```text
 homebrew-tap/
 ├── .github/
-│   ├── dependabot.yml     # Weekly GitHub Actions updates
+│   ├── dependabot.yml         # Weekly GitHub Actions updates
 │   └── workflows/
-│       ├── test-and-merge.yml # Auto-merge bump PRs
+│       ├── tests.yml          # Run tests
+│       ├── automerge-bump-pr.yml # Auto-merge bump PRs
 │       └── update.yml         # Check for updates twice daily
 └── Formula/
     ├── boulder.rb             # ACME CA formula
