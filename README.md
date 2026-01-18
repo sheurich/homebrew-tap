@@ -62,10 +62,10 @@ Extracts commit timestamp for reproducible builds:
 commit_time = Utils.git_commit_timestamp(
   stable.url,
   stable.specs[:revision],
-  timezone: "UTC"
+  timezone: "UTC",
 )
 ldflags = "-s -w -X " \
-  "github.com/letsencrypt/boulder/core.BuildTime=#{commit_time.iso8601}"
+          "github.com/letsencrypt/boulder/core.BuildTime=#{commit_time.iso8601}"
 ```
 
 Other details:
