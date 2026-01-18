@@ -34,6 +34,23 @@ jobs:
 
       - run: brew test-bot --only-cleanup-before
 
+      - name: Diagnose bundle dir perms (ubuntu-22.04-arm)
+        if: matrix.os == 'ubuntu-22.04-arm'
+        run: |
+          set -euo pipefail
+          paths=(
+            /home/linuxbrew/.linuxbrew
+            /home/linuxbrew/.linuxbrew/Homebrew
+            /home/linuxbrew/.linuxbrew/Homebrew/Library/Homebrew
+            /home/linuxbrew/.linuxbrew/Homebrew/Library/Homebrew/vendor
+            /home/linuxbrew/.linuxbrew/Homebrew/Library/Homebrew/vendor/bundle
+            /home/linuxbrew/.linuxbrew/Homebrew/Library/Homebrew/vendor/bundle/ruby
+            /home/linuxbrew/.linuxbrew/Homebrew/Library/Homebrew/vendor/bundle/ruby/3.4.0
+            /home/linuxbrew/.linuxbrew/Homebrew/Library/Homebrew/vendor/bundle/ruby/3.4.0/gems
+          )
+          ls -ld "${paths[@]}" || true
+          stat -c '%a %U:%G %n' "${paths[@]}" || true
+
       - run: brew test-bot --only-setup
 
       - run: brew test-bot --only-tap-syntax
