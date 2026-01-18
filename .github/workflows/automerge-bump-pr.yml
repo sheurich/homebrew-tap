@@ -21,8 +21,9 @@ jobs:
       - name: Merge PR
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+        # yamllint disable rule:line-length
         run: |
+          PR_NUMBER="$(jq -r 'if (.workflow_run.pull_requests | length) > 0 then .workflow_run.pull_requests[0].number else "" end' "$GITHUB_EVENT_PATH")"  # yamllint disable-line rule:line-length
           if [[ -z "${PR_NUMBER}" ]]; then
             echo "No pull request associated with this run."
             exit 0
@@ -30,3 +31,4 @@ jobs:
           gh pr merge "${PR_NUMBER}" \
             --repo "${{ github.repository }}" \
             --squash --delete-branch
+        # yamllint enable rule:line-length
