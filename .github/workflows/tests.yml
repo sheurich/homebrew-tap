@@ -58,6 +58,7 @@ jobs:
         run: |
           set -euo pipefail
           brew_repo="$(brew --repository)"
+          sudo chown -R "$(id -un)":"$(id -gn)" "${brew_repo}"
           sudo chmod -R go-w "${brew_repo}"
 
       - run: brew test-bot --only-setup
