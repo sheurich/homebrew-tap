@@ -54,6 +54,12 @@ jobs:
             *) stat -c '%a %U:%G %n' "${paths[@]}" || true ;;
           esac
 
+      - name: Fix Homebrew perms
+        run: |
+          set -euo pipefail
+          brew_repo="$(brew --repository)"
+          sudo chmod -R go-w "${brew_repo}"
+
       - run: brew test-bot --only-setup
 
       - run: brew test-bot --only-tap-syntax
