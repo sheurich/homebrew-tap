@@ -52,6 +52,12 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Configure git
+        if: steps.pr.outputs.skip != 'true'
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
       - name: Pull bottles and update formula
         if: steps.pr.outputs.skip != 'true'
         env:
