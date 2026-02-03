@@ -62,3 +62,4 @@ class Boulder < Formula
     assert_match version.to_s, shell_output("#{bin}/boulder --version")
   end
 end
+
