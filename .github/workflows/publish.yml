@@ -62,19 +62,13 @@ jobs:
         if: steps.pr.outputs.skip != 'true'
         env:
           HOMEBREW_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # brew pr-pull handles: download artifacts, upload to release, commit bottle DSL, push to main
         run: |
           brew pr-pull \
             --tap="${{ github.repository }}" \
             --workflows=tests.yml \
             --artifact-pattern="bottles_*" \
             "${{ steps.pr.outputs.number }}"
-
-      - name: Push commits
-        if: steps.pr.outputs.skip != 'true'
-        uses: Homebrew/actions/git-try-push@main
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          branch: main
 
   automerge:
     needs: publish
