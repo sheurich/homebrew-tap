@@ -5,6 +5,7 @@ class Boulder < Formula
     tag:      "v0.20260202.0",
     revision: "6a75950426bae0621efe9477189c974892448cd0"
   license "MPL-2.0"
+  revision 1
 
   head "https://github.com/letsencrypt/boulder.git",
     branch: "main"
