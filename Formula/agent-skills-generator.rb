@@ -9,7 +9,9 @@ class AgentSkillsGenerator < Formula
   depends_on "go" => :build
 
   def install
-    system "go", "build", *std_go_args(ldflags: "-s -w")
+    (buildpath/"go-cli").cd do
+      system "go", "build", *std_go_args(ldflags: "-s -w")
+    end
   end
 
   test do
